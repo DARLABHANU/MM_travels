@@ -147,6 +147,13 @@ export default function SelectDropMapScreen() {
                     attributionEnabled={false}
                     compassEnabled={false}
                     onCameraChanged={handleCameraChanged}
+                    onDidFinishLoadingMap={() => {
+                        console.log('[MAPBOX] Select-Drop MAP LOAD SUCCESS');
+                        setMapReady(true);
+                    }}
+                    onMapLoadingError={() => {
+                        console.error('[MAPBOX] Select-Drop MAP LOAD ERROR — check token');
+                    }}
                 >
                     <Camera
                         ref={cameraRef}

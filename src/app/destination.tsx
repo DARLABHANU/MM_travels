@@ -54,6 +54,7 @@ export default function DestinationScreen() {
 
     const [pickupQuery, setPickupQuery] = useState(params.pickupTitle || 'Current Location');
     const [dropQuery, setDropQuery] = useState('');
+    const [activeField, setActiveField] = useState<'pickup' | 'drop'>('drop');
     const [isSearching, setIsSearching] = useState(false);
     const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
 
@@ -74,18 +75,18 @@ export default function DestinationScreen() {
         }
     }, [params]);
 
-    // Handle Drop location search input with debounce effect
+    // Search whenever the active field's query changes
     useEffect(() => {
+        const activeQuery = activeField === 'pickup' ? pickupQuery : dropQuery;
         const timeoutId = setTimeout(() => {
-            if (dropQuery.trim().length > 2 && params.action !== 'mapSelected') {
-                performSearch(dropQuery);
-            } else if (dropQuery.trim().length === 0) {
+            if (activeQuery.trim().length >= 2 && params.action !== 'mapSelected') {
+                performSearch(activeQuery);
+            } else if (activeQuery.trim().length === 0) {
                 setSearchResults([]);
             }
-        }, 400);
-
+        }, 350);
         return () => clearTimeout(timeoutId);
-    }, [dropQuery]);
+    }, [dropQuery, pickupQuery, activeField]);
 
     const performSearch = async (query: string) => {
         setIsSearching(true);
@@ -116,18 +117,27 @@ export default function DestinationScreen() {
     };
 
     const handleSelectResult = (result: LocationSearchResult) => {
-        setDropQuery(result.title);
         Keyboard.dismiss();
         setSearchResults([]);
-
-        proceedToRideSelection(result.latitude.toString(), result.longitude.toString(), result.title, result.subtitle);
+        if (activeField === 'drop') {
+            setDropQuery(result.title);
+            proceedToRideSelection(result.latitude.toString(), result.longitude.toString(), result.title, result.subtitle);
+        } else {
+            // Update pickup field — stay on screen so user can then enter drop
+            setPickupQuery(result.title);
+            setActiveField('drop');
+        }
     };
 
     const handleSelectRecent = (recent: SavedLocation) => {
-        setDropQuery(recent.title);
         Keyboard.dismiss();
-
-        proceedToRideSelection(recent.latitude.toString(), recent.longitude.toString(), recent.title, recent.subtitle);
+        if (activeField === 'drop') {
+            setDropQuery(recent.title);
+            proceedToRideSelection(recent.latitude.toString(), recent.longitude.toString(), recent.title, recent.subtitle);
+        } else {
+            setPickupQuery(recent.title);
+            setActiveField('drop');
+        }
     };
 
     const toggleFavorite = (id: string) => {
@@ -172,16 +182,23 @@ export default function DestinationScreen() {
                     {/* INPUT CARD */}
                     <View style={styles.inputCard}>
                         {/* Pickup Row */}
-                        <View style={styles.inputRow}>
+                        <View style={[styles.inputRow, activeField === 'pickup' && styles.inputRowActive]}>
                             <View style={[styles.markerRing, { borderColor: colors.green }]}>
                                 <View style={[styles.markerDot, { backgroundColor: colors.green }]} />
                             </View>
                             <TextInput
-                                style={[styles.inputField, { color: colors.inkSoft }]}
+                                style={[styles.inputField, { color: colors.ink }]}
                                 value={pickupQuery}
-                                onChangeText={setPickupQuery}
+                                onChangeText={(t) => { setPickupQuery(t); setActiveField('pickup'); }}
+                                onFocus={() => setActiveField('pickup')}
                                 placeholder="Pickup location"
+                                placeholderTextColor={colors.inkSoft}
                             />
+                            {activeField === 'pickup' && pickupQuery.length > 0 && (
+                                <TouchableOpacity onPress={() => { setPickupQuery(''); setSearchResults([]); }}>
+                                    <Ionicons name="close-circle" size={18} color={colors.inkSoft} />
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         {/* Visual Connector */}
@@ -207,17 +224,24 @@ export default function DestinationScreen() {
                         ))}
 
                         {/* Drop Row */}
-                        <View style={styles.inputRow}>
+                        <View style={[styles.inputRow, activeField === 'drop' && styles.inputRowActive]}>
                             <View style={[styles.markerRing, { borderColor: '#EAB308' }]}>
                                 <View style={[styles.markerDot, { backgroundColor: '#EAB308' }]} />
                             </View>
                             <TextInput
                                 style={styles.inputField}
                                 value={dropQuery}
-                                onChangeText={setDropQuery}
+                                onChangeText={(t) => { setDropQuery(t); setActiveField('drop'); }}
+                                onFocus={() => setActiveField('drop')}
                                 placeholder="Drop location"
+                                placeholderTextColor={colors.inkSoft}
                                 autoFocus={true}
                             />
+                            {dropQuery.length > 0 && (
+                                <TouchableOpacity onPress={() => { setDropQuery(''); setSearchResults([]); }}>
+                                    <Ionicons name="close-circle" size={18} color={colors.inkSoft} />
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </View>
 
@@ -238,6 +262,12 @@ export default function DestinationScreen() {
 
                     {/* SEARCH RESULTS OR RECENT */}
                     <View style={styles.listContainer}>
+                        {/* Active field indicator */}
+                        {(dropQuery.trim().length >= 2 || pickupQuery.trim().length >= 2) && (
+                            <Text style={styles.searchingForLabel}>
+                                Showing results for <Text style={{ fontWeight: '700', color: colors.ink }}>{activeField === 'pickup' ? 'Pickup' : 'Drop'}</Text>
+                            </Text>
+                        )}
                         {isSearching ? (
                             <View style={styles.centerLoading}>
                                 <ActivityIndicator size="small" color={colors.ink} />
@@ -447,5 +477,15 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.inkSoft,
         fontWeight: '500',
-    }
+    },
+    inputRowActive: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 8,
+    },
+    searchingForLabel: {
+        fontSize: 12,
+        color: colors.inkSoft,
+        marginBottom: 8,
+        paddingHorizontal: 4,
+    },
 });

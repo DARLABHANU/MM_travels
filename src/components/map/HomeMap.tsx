@@ -27,8 +27,8 @@ interface HomeMapProps {
     driverLocations?: DriverLocation[]; // Future Phase Integration
 }
 
-// Initialize Mapbox with the public client token configured by EAS or Local .env
-Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '');
+// Token is initialized globally in _layout.tsx — do NOT duplicate setAccessToken here.
+// Calling setAccessToken multiple times with different tokens causes the native SDK to use the LAST call.
 
 // Leaflet HTML source document for web rendering
 const leafletHtml = `
@@ -206,8 +206,10 @@ export default function HomeMap({ onPickupLocationChange }: HomeMapProps) {
     };
 
     const handleCameraChanged = (state: any) => {
-        // Only mark moving visually if actually dragged
-        if (!isGeocoding) setIsGeocoding(true);
+        // Prevent GPS hardware jitter from triggering API loops
+        if (state?.gestures && !state.gestures.isGestureActive) {
+            return;
+        }
 
         const propertiesCenter = state?.properties?.center;
         const geometryCoords = state?.geometry?.coordinates;
@@ -222,10 +224,15 @@ export default function HomeMap({ onPickupLocationChange }: HomeMapProps) {
         }
 
         if (longitude !== undefined && latitude !== undefined && !isNaN(longitude) && !isNaN(latitude)) {
+            // Null Island glitch prevention
+            if (Math.abs(latitude) < 0.1 && Math.abs(longitude) < 0.1) return;
+
+            if (!isGeocoding) setIsGeocoding(true);
+
             if (debounceTimer.current) clearTimeout(debounceTimer.current);
             debounceTimer.current = setTimeout(() => {
                 reverseGeocodeCoordinates(latitude!, longitude!);
-            }, 600); // Wait until dragging has definitively stopped
+            }, 500);
         }
     };
 
@@ -252,19 +259,15 @@ export default function HomeMap({ onPickupLocationChange }: HomeMapProps) {
 
     const { title, subtitle } = formatAddress(pickupAddress);
 
-    // Calculate dynamic display text for the precise address card bar based on user specs
-    let addressBarText = 'Unknown Location';
-    if (isGeocoding) {
-        addressBarText = 'Locating...';
-    } else if (pickupCoord) {
-        const lat = pickupCoord.latitude.toFixed(5);
-        const lng = pickupCoord.longitude.toFixed(5);
-
-        const fullAddress = pickupAddress
-            ? ((pickupAddress as any).formatted_address || (pickupAddress as any).display_name || subtitle || title)
-            : 'Unknown Location';
-
-        addressBarText = `${lat}, ${lng} - ${fullAddress}`;
+    // Address card display — clean name + subtitle (no raw coord spam)
+    let addressTitle = 'Locating...';
+    let addressSubtitle = '';
+    if (!isGeocoding && pickupAddress) {
+        addressTitle = title || 'Selected Location';
+        addressSubtitle = subtitle;
+    } else if (!isGeocoding && pickupCoord) {
+        addressTitle = 'Unknown Location';
+        addressSubtitle = `${pickupCoord.latitude.toFixed(5)}, ${pickupCoord.longitude.toFixed(5)}`;
     }
 
     return (
@@ -284,32 +287,35 @@ export default function HomeMap({ onPickupLocationChange }: HomeMapProps) {
                         }}
                     />
                 ) : (
-                    <View style={StyleSheet.absoluteFill}>
-                        <MapView
-                            ref={mapRef}
-                            style={styles.map}
-                            styleURL={Mapbox.StyleURL.Street}
-                            logoEnabled={false}
-                            attributionEnabled={false}
-                            compassEnabled={false}
-                            onCameraChanged={handleCameraChanged}
-                            onDidFinishLoadingMap={() => setMapReady(true)}
-                        >
-                            <Camera
-                                ref={cameraRef}
-                                defaultSettings={{
-                                    centerCoordinate: [DEFAULT_COORD.longitude, DEFAULT_COORD.latitude],
-                                    zoomLevel: 15,
-                                }}
-                            />
-                            {/* Native pulsing blue GPS indicator for Mapbox */}
-                            <LocationPuck
-                                puckBearingEnabled
-                                puckBearing="heading"
-                                pulsing={{ isEnabled: true }}
-                            />
-                        </MapView>
-                    </View>
+                    <MapView
+                        ref={mapRef}
+                        style={styles.map}
+                        styleURL={Mapbox.StyleURL.Street}
+                        logoEnabled={false}
+                        attributionEnabled={false}
+                        compassEnabled={false}
+                        onCameraChanged={handleCameraChanged}
+                        onDidFinishLoadingMap={() => {
+                            console.log('[MAPBOX] MAP LOAD SUCCESS');
+                            setMapReady(true);
+                        }}
+                        onMapLoadingError={() => {
+                            console.error('[MAPBOX] MAP LOAD ERROR — check token and style URL');
+                        }}
+                    >
+                        <Camera
+                            ref={cameraRef}
+                            defaultSettings={{
+                                centerCoordinate: [DEFAULT_COORD.longitude, DEFAULT_COORD.latitude],
+                                zoomLevel: 15,
+                            }}
+                        />
+                        <LocationPuck
+                            puckBearingEnabled
+                            puckBearing="heading"
+                            pulsing={{ isEnabled: true }}
+                        />
+                    </MapView>
                 )}
 
                 {/* --- POINTER UI OVERLAY (Center of top half) --- */}
@@ -335,9 +341,16 @@ export default function HomeMap({ onPickupLocationChange }: HomeMapProps) {
                     <View style={styles.greenRing}>
                         <View style={styles.greenDot} />
                     </View>
-                    <Text style={styles.addressText} numberOfLines={1}>
-                        {addressBarText}
-                    </Text>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={styles.addressText} numberOfLines={1}>
+                            {isGeocoding ? 'Locating...' : addressTitle}
+                        </Text>
+                        {!isGeocoding && addressSubtitle ? (
+                            <Text style={styles.addressSubText} numberOfLines={1}>
+                                {addressSubtitle}
+                            </Text>
+                        ) : null}
+                    </View>
                 </View>
                 <TouchableOpacity activeOpacity={0.7} style={styles.gpsButton} onPress={handleCurrentLocationTap}>
                     <Ionicons name="locate" size={20} color={colors.ink} />
@@ -354,12 +367,11 @@ const styles = StyleSheet.create({
     },
     mapWrapper: {
         width: '100%',
-        height: '62%', // Leaves bottom 38% for sheet, overlapping safely under the 40-45% snap bounds
-        position: 'relative',
+        height: '62%',
+        overflow: 'hidden',
     },
     map: {
-        width: '100%',
-        height: '100%',
+        flex: 1,
     },
     pickupMarkerContainer: {
         position: 'absolute',
@@ -457,7 +469,11 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: colors.ink,
         flex: 1,
-        marginRight: 8,
+    },
+    addressSubText: {
+        fontSize: 12,
+        color: colors.inkSoft,
+        marginTop: 1,
     },
     gpsButton: {
         padding: 6,

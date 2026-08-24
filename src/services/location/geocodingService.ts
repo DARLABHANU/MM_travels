@@ -1,4 +1,3 @@
-import * as Location from 'expo-location';
 import { Address, Coordinate } from '../../types/location';
 
 // Cache to prevent duplicate requests and spam
@@ -8,111 +7,121 @@ let lastGcTimestamp = 0;
 // Session flag to gracefully abandon the native OS geocoder proxy if it is structurally offline
 let nativeGeocoderUnavailable = false;
 
+const MAPBOX_ACCESS_TOKEN = (process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '').trim();
+
 export async function reverseGeocode(coordinate: Coordinate): Promise<Address | null> {
-    const cacheKey = `${coordinate.latitude.toFixed(4)},${coordinate.longitude.toFixed(4)}`;
+    const { latitude, longitude } = coordinate;
+    const cacheKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
     if (gcCache.has(cacheKey)) {
         return gcCache.get(cacheKey)!;
     }
 
-    try {
-        let addresses = null;
+    if (MAPBOX_ACCESS_TOKEN && MAPBOX_ACCESS_TOKEN.startsWith('pk.')) {
+        try {
+            // Include all granular place types — village, hamlet, locality, district for rural India
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_ACCESS_TOKEN}&types=poi,address,neighborhood,locality,place,district,region&limit=1&language=en`;
+            const response = await fetch(url);
 
-        // Attempt Native Geocoder unless blacklisted this session
-        if (!nativeGeocoderUnavailable) {
-            try {
-                addresses = await Location.reverseGeocodeAsync({
-                    latitude: coordinate.latitude,
-                    longitude: coordinate.longitude,
-                });
-            } catch (nativeError) {
-                console.log('Native geocoder unavailable. Blacklisting native geocoder for the rest of this session.');
-                nativeGeocoderUnavailable = true;
-            }
-        }
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.features && data.features.length > 0) {
+                    const bestMatch = data.features[0];
 
-        if (addresses && addresses.length > 0) {
-            const addr = addresses[0];
-            const result = {
-                streetNumber: addr.streetNumber,
-                street: addr.street,
-                district: addr.district,
-                city: addr.city,
-                region: addr.region,
-                postalCode: addr.postalCode,
-                country: addr.country,
-                name: addr.name,
-                formattedAddress: addr.formattedAddress,
-            };
-            gcCache.set(cacheKey, result);
-            return result;
-        }
+                    // Extract structured context parts (village, district, state etc.)
+                    const context: any[] = bestMatch.context || [];
+                    const getCtx = (id: string) => context.find((c: any) => c.id?.startsWith(id))?.text || null;
 
-        // --- HTTP FALLBACK (Nominatim OpenStreetMap) ---
-        // Respect public rate limits: 1 request per second max
-        const now = Date.now();
-        const timeSinceLastReq = now - lastGcTimestamp;
-        if (timeSinceLastReq < 1000) {
-            // Wait out the throttling limit
-            await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceLastReq));
-        }
-        lastGcTimestamp = Date.now();
+                    const name = bestMatch.text || bestMatch.place_name?.split(',')[0] || null;
+                    const district = getCtx('locality') || getCtx('place') || getCtx('district') || null;
+                    const city = getCtx('place') || getCtx('district') || null;
+                    const region = getCtx('region') || null;
+                    const country = getCtx('country') || null;
 
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coordinate.latitude}&lon=${coordinate.longitude}`,
-            {
-                headers: {
-                    'Accept-Language': 'en',
-                    'User-Agent': 'MM_Travels_Dev_App/1.0 (Development; +https://example.com)'
+                    const result: Address = {
+                        streetNumber: null,
+                        street: getCtx('address') || null,
+                        district,
+                        city,
+                        region,
+                        postalCode: getCtx('postcode') || null,
+                        country,
+                        name,
+                        formattedAddress: bestMatch.place_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+                    };
+
+                    gcCache.set(cacheKey, result);
+                    console.log(`[GEOCODE] Mapbox success: ${name} — ${bestMatch.place_name}`);
+                    return result;
                 }
+            } else {
+                console.warn(`Mapbox geocoding returned ${response.status}. Switching to fallback...`);
             }
-        );
-        const data = await response.json();
-
-        if (data && data.address) {
-            const addr = data.address;
-            const name = data.name || addr.suburb || addr.neighbourhood || addr.road || null;
-            const result = {
-                streetNumber: addr.house_number || null,
-                street: addr.road || null,
-                district: addr.suburb || addr.neighbourhood || addr.district || null,
-                city: addr.city || addr.town || addr.village || null,
-                region: addr.state || null,
-                postalCode: addr.postcode || null,
-                country: addr.country || null,
-                name: name,
-                formattedAddress: data.display_name || null,
-            };
-
-            // Cache successful result
-            gcCache.set(cacheKey, result);
-
-            console.log(`\nREVERSE_GEOCODE:\ncoordinates = [${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}]\nprovider = Nominatim\nstatus = success\naddress = ${result.formattedAddress}`);
-
-            return result;
+        } catch (e) {
+            console.warn('Mapbox network error, attempting fallback...', e);
         }
-    } catch (e) {
-        console.warn('Network or Geocoding failure:', e);
     }
 
-    // --- GRACEFUL OFFLINE FALLBACK ---
-    // If both Native and HTTP boundaries fail (e.g. no internet/limits), synthesize an address object
-    // out of the raw coordinates to prevent app logic or UI component failure.
-    const fallbackCoordStr = `${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`;
-    const fallbackResult = {
-        streetNumber: null,
-        street: null,
-        district: null,
-        city: null,
-        region: null,
-        postalCode: null,
-        country: null,
-        name: `Lat: ${coordinate.latitude.toFixed(3)} Lng: ${coordinate.longitude.toFixed(3)}`,
-        formattedAddress: `Dropped Pin (${fallbackCoordStr})`,
-    };
+    // --- OSM Nominatim FALLBACK (captures village, hamlet, rural areas) ---
+    try {
+        const fallbackUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=en`;
+        const fbRes = await fetch(fallbackUrl, {
+            headers: { 'User-Agent': 'MMTravelsApp/1.0' },
+        });
+        const fbData = await fbRes.json();
+        const addr = fbData.address || {};
 
-    console.log(`\nREVERSE_GEOCODE:\ncoordinates = [${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}]\nprovider = None/Fallback\nstatus = failure\naddress = ${fallbackResult.formattedAddress}`);
+        // Priority chain for name: village > hamlet > town > suburb > road (rural India coverage)
+        const title =
+            addr.village ||
+            addr.hamlet ||
+            addr.isolated_dwelling ||
+            addr.suburb ||
+            addr.neighbourhood ||
+            addr.town ||
+            addr.road ||
+            fbData.name ||
+            'Selected Location';
 
-    return fallbackResult;
+        // District-level: from block/tehsil/county/district
+        const district =
+            addr.county ||
+            addr.state_district ||
+            addr.suburb ||
+            addr.city_district ||
+            null;
+
+        const addressStr = fbData.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+
+        const fallbackResult: Address = {
+            streetNumber: addr.house_number || null,
+            street: addr.road || null,
+            district,
+            city: addr.city || addr.town || addr.municipality || null,
+            region: addr.state || null,
+            postalCode: addr.postcode || null,
+            country: addr.country || null,
+            name: title,
+            formattedAddress: addressStr,
+        };
+
+        console.log(`[GEOCODE] OSM fallback success: ${title} — ${addressStr}`);
+        gcCache.set(cacheKey, fallbackResult);
+        return fallbackResult;
+    } catch (fallbackError) {
+        console.error("All reverse geocoders failed:", fallbackError);
+        const fallbackCoordStr = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        return {
+            streetNumber: null,
+            street: null,
+            district: null,
+            city: null,
+            region: null,
+            postalCode: null,
+            country: null,
+            name: `Near ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`,
+            formattedAddress: `Dropped Pin (${fallbackCoordStr})`,
+        };
+    }
 }
 
 export function formatAddress(address: Address | null): { title: string, subtitle: string } {
@@ -121,8 +130,8 @@ export function formatAddress(address: Address | null): { title: string, subtitl
     const title = address.name || address.street || address.district || 'Selected Location';
 
     // Construct subtitle cleanly without hanging commas
-    const subtitleParts = [address.district, address.city, address.region].filter(Boolean);
-    const subtitle = subtitleParts.join(', ') || 'Unknown Area';
+    const subtitleParts = [address.street, address.district, address.city, address.region].filter(Boolean);
+    const subtitle = subtitleParts.join(', ') || address.formattedAddress || 'Unknown Area';
 
     return { title, subtitle };
 }

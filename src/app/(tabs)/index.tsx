@@ -12,10 +12,11 @@ import { formatAddress } from '../../services/location/geocodingService';
 import { Address, Coordinate } from '../../types/location';
 
 const SERVICES = [
-    { label: 'Shared\nAuto', icon: 'car-sport' },
-    { label: 'Parcel on\nBike', icon: 'bicycle' },
-    { label: 'Auto', icon: 'car-sport' },
-    { label: 'Cab\nEconomy', icon: 'car' },
+    { label: 'City\nRide', icon: 'car', color: '#E2FBE9', iconColor: '#065F46' },
+    { label: 'Outstation', icon: 'map', color: '#FEF3C7', iconColor: '#B45309' },
+    { label: 'Local\nHourly', icon: 'time', color: '#E0E7FF', iconColor: '#4338CA' },
+    { label: 'Self\nDrive', icon: 'key', color: '#FCE7F3', iconColor: '#BE185D' },
+    { label: 'Pool\nRide', icon: 'people', color: '#F3E8FF', iconColor: '#7E22CE' },
 ];
 
 const { width } = Dimensions.get('window');
@@ -94,14 +95,13 @@ export default function HomeScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* SERVICE CARDS (4 Columns) */}
+                    {/* SERVICE CARDS (Dynamic Grid) */}
                     <View style={styles.servicesRow}>
                         {SERVICES.map((srv, idx) => (
                             <TouchableOpacity key={idx} activeOpacity={0.8} style={styles.serviceBlock}>
                                 <View style={styles.serviceIconFrame}>
-                                    {/* Mocking the actual vector assets by rendering a colorful gradient shape representing the vehicle bounding-box */}
-                                    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#E2FBE9', borderRadius: 16 }]} />
-                                    <Ionicons name={srv.icon as any} size={28} color="#065F46" style={styles.serviceIconMock} />
+                                    <View style={[StyleSheet.absoluteFill, { backgroundColor: srv.color, borderRadius: 16 }]} />
+                                    <Ionicons name={srv.icon as any} size={28} color={srv.iconColor} style={styles.serviceIconMock} />
                                 </View>
                                 <Text style={styles.serviceLabel}>{srv.label}</Text>
                             </TouchableOpacity>
@@ -271,12 +271,14 @@ const styles = StyleSheet.create({
     servicesRow: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        justifyContent: 'space-between',
-        marginBottom: 16,
+        justifyContent: 'flex-start',
+        flexWrap: 'wrap',
+        marginBottom: 8,
     },
     serviceBlock: {
         alignItems: 'center',
-        width: Dimensions.get('window').width / 4 - 14,
+        width: (Dimensions.get('window').width - 32) / 4,
+        marginBottom: 16,
     },
     serviceIconFrame: {
         width: 60,

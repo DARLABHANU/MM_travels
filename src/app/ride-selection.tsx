@@ -1,10 +1,12 @@
 import { colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import Mapbox, { Camera, CircleLayer, LineLayer, MapView, ShapeSource } from '@rnmapbox/maps';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { reverseGeocode } from '../services/location/geocodingService';
 import { getRoute, RouteResult } from '../services/location/routingService';
 import { getServiceEstimates, RideService } from '../services/pricing/fareService';
 import { Coordinate } from '../types/location';
@@ -23,10 +25,16 @@ export default function RideSelectionScreen() {
 
     const mapRef = useRef<any>(null);
     const cameraRef = useRef<any>(null);
+    const passengerSheetRef = useRef<BottomSheet>(null);
 
     // Core state
     const [pickupCoord, setPickupCoord] = useState<Coordinate | null>(null);
     const [dropCoord, setDropCoord] = useState<Coordinate | null>(null);
+    const [pickupAddress, setPickupAddress] = useState('Resolving pickup...');
+    const [dropAddress, setDropAddress] = useState('Resolving dropoff...');
+
+    const [passengers, setPassengers] = useState(1);
+    const [luggage, setLuggage] = useState(0);
 
     const [route, setRoute] = useState<RouteResult | null>(null);
     const [mapReady, setMapReady] = useState(false);
@@ -75,8 +83,13 @@ export default function RideSelectionScreen() {
                 setSelectedServiceId(fastest ? fastest.id : estimatedServices[0].id);
             }
 
-            // 3. Auto-fit camera over both coordinates
-            fitMapToBounds([pickup, drop]);
+            // Geocode logic injection
+            reverseGeocode(pickup).then(loc => {
+                setPickupAddress(loc?.name || (loc?.formattedAddress ? loc.formattedAddress.split(',')[0] : 'Selected Pickup'));
+            });
+            reverseGeocode(drop).then(loc => {
+                setDropAddress(loc?.name || (loc?.formattedAddress ? loc.formattedAddress.split(',')[0] : 'Selected Destination'));
+            });
 
         } catch (e) {
             console.error(e);
@@ -87,26 +100,36 @@ export default function RideSelectionScreen() {
     };
 
     const fitMapToBounds = (coords: Coordinate[]) => {
-        if (cameraRef.current?.fitBounds && coords.length >= 2) {
+        if (cameraRef.current?.setCamera && coords.length >= 2) {
             const lats = coords.map(c => c.latitude);
             const lngs = coords.map(c => c.longitude);
             const sw = [Math.min(...lngs), Math.min(...lats)];
             const ne = [Math.max(...lngs), Math.max(...lats)];
 
-            // Mapbox fitBounds API is nested in camera settings
+            // Mapbox fitBounds API paddings are relative to the *MapView* dimension, not the screen object.
+            // Since MapView is flex: 1 taking up the top ~55% of the screen, we only need internal padding.
             cameraRef.current.setCamera({
                 bounds: {
                     ne,
                     sw,
-                    paddingTop: 50,
-                    paddingLeft: 50,
-                    paddingBottom: SCREEN_HEIGHT * 0.45,
-                    paddingRight: 50
+                    paddingTop: 60,
+                    paddingLeft: 40,
+                    paddingBottom: 60,
+                    paddingRight: 40
                 },
-                animationDuration: 1000
+                animationDuration: 1200
             });
         }
     };
+
+    // Safely trigger camera bounds ONLY when Map engine is fully alive and math is finished
+    useEffect(() => {
+        if (mapReady && route && !isCalculating && pickupCoord && dropCoord) {
+            // Unify OSRM route points + Absolute Pins to guarantee no markers clip off screen
+            const boundsCoords = route.coordinates.length > 0 ? [...route.coordinates, pickupCoord, dropCoord] : [pickupCoord, dropCoord];
+            fitMapToBounds(boundsCoords);
+        }
+    }, [mapReady, route, isCalculating]);
 
     // Calculate arrival time dynamically
     const formatTime = (addMinutes = 0) => {
@@ -119,7 +142,7 @@ export default function RideSelectionScreen() {
 
     const geoJSONRoute = {
         type: 'FeatureCollection',
-        features: route ? [{
+        features: route && route.coordinates.length > 0 ? [{
             type: 'Feature',
             properties: {},
             geometry: {
@@ -130,8 +153,7 @@ export default function RideSelectionScreen() {
     };
 
     const handleConfirmBooking = () => {
-        // DEMO Action
-        alert(`Booking flow ready for ${selectedService?.name}`);
+        passengerSheetRef.current?.expand();
     };
 
     return (
@@ -144,7 +166,13 @@ export default function RideSelectionScreen() {
                         style={styles.map}
                         styleURL={Mapbox.StyleURL.Street}
                         logoEnabled={false}
-                        onDidFinishLoadingMap={() => setMapReady(true)}
+                        onDidFinishLoadingMap={() => {
+                            console.log('[MAPBOX] Ride-Selection MAP LOAD SUCCESS');
+                            setMapReady(true);
+                        }}
+                        onMapLoadingError={() => {
+                            console.error('[MAPBOX] Ride-Selection MAP LOAD ERROR — check token');
+                        }}
                     >
                         <Camera
                             ref={cameraRef}
@@ -205,12 +233,17 @@ export default function RideSelectionScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* SERVICES SHEET (BOTTOM 45-50% OF SCREEN) */}
+            {/* C2 PREVIEW SHEET (BOTTOM 35-40% OF SCREEN) */}
             <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+                {/* Visual handle */}
+                <View style={{ alignItems: 'center', marginVertical: 12 }}>
+                    <View style={styles.sheetHandle} />
+                </View>
+
                 {isCalculating ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={colors.gold} />
-                        <Text style={styles.loadingText}>Calculating route and fares...</Text>
+                        <Text style={styles.loadingText}>Calculating route...</Text>
                     </View>
                 ) : routeError ? (
                     <View style={styles.errorContainer}>
@@ -221,84 +254,134 @@ export default function RideSelectionScreen() {
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    <>
-                        <ScrollView showsVerticalScrollIndicator={false} style={styles.servicesScroll}>
-                            {services.map((srv) => {
-                                const isSelected = selectedServiceId === srv.id;
-                                return (
-                                    <TouchableOpacity
-                                        key={srv.id}
-                                        style={[styles.serviceRow, isSelected && styles.serviceRowSelected]}
-                                        onPress={() => setSelectedServiceId(srv.id)}
-                                        activeOpacity={0.8}
-                                    >
-                                        {/* Left Graphic */}
-                                        <View style={styles.serviceIconContainer}>
-                                            <Ionicons name={srv.icon as any} size={32} color={colors.ink} />
-                                        </View>
+                    <View style={styles.c2Container}>
+                        {/* 12.4 km . 28 min / Fastest route currently available + Surge Pill */}
+                        <View style={styles.c2HeaderRow}>
+                            <View style={styles.c2TimeInfo}>
+                                <Text style={styles.c2Distance}>{route ? (route.distanceMeters / 1000).toFixed(1) : 0} km <Text style={styles.c2Duration}>· {route ? Math.round(route.durationSeconds / 60) : 0} min</Text></Text>
+                                <Text style={styles.c2Subtitle}>Fastest route currently available</Text>
+                            </View>
+                            <View style={styles.c2SurgePill}>
+                                <Ionicons name="flash" size={14} color="#92400E" />
+                                <Text style={styles.c2SurgeText}>Surge</Text>
+                            </View>
+                        </View>
 
-                                        {/* Center Data */}
-                                        <View style={styles.serviceDetails}>
-                                            <View style={styles.serviceNameRow}>
-                                                <Text style={styles.serviceName}>{srv.name}</Text>
-                                                {srv.capacity && (
-                                                    <View style={styles.capacityBadge}>
-                                                        <Ionicons name="person" size={10} color={colors.inkSoft} />
-                                                        <Text style={styles.capacityText}>{srv.capacity}</Text>
-                                                    </View>
-                                                )}
-                                                {srv.badge && (
-                                                    <View style={styles.serviceBadge}>
-                                                        <Text style={styles.serviceBadgeText}>{srv.badge}</Text>
-                                                    </View>
-                                                )}
-                                            </View>
+                        <View style={styles.c2Divider} />
 
-                                            {srv.description && (
-                                                <Text style={styles.serviceDescription}>{srv.description}</Text>
-                                            )}
-
-                                            <Text style={styles.serviceETA}>
-                                                {srv.estimatedPickupMinutes} mins • Drop {formatTime(srv.estimatedDurationMinutes + srv.estimatedPickupMinutes)}
-                                            </Text>
-                                        </View>
-
-                                        {/* Right Fare */}
-                                        <View style={styles.fareContainer}>
-                                            <Text style={styles.fareText}>₹{srv.estimatedFare}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </ScrollView>
-
-                        {/* BOTTOM ACTION BAR (PAYMENT + BOOK) */}
-                        <View style={styles.actionBar}>
-                            {/* Payment Matrix */}
-                            <View style={styles.paymentRow}>
-                                <TouchableOpacity style={styles.paymentButton}>
-                                    <Ionicons name="cash-outline" size={18} color={colors.green} />
-                                    <Text style={styles.paymentText}>Cash</Text>
-                                    <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
-                                </TouchableOpacity>
-
-                                <View style={styles.paymentDivider} />
-
-                                <TouchableOpacity style={styles.offersButton}>
-                                    <Ionicons name="pricetag-outline" size={18} color="#EA580C" />
-                                    <Text style={styles.offersText}>Offers</Text>
-                                    <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
-                                </TouchableOpacity>
+                        {/* Waypoints line map */}
+                        <View style={styles.c2RouteBlock}>
+                            <View style={styles.c2RouteLineCol}>
+                                <View style={styles.c2DotPickup}>
+                                    <View style={styles.c2DotPickupInner} />
+                                </View>
+                                <View style={styles.c2VerticalLink} />
+                                <View style={styles.c2DotDropoff}>
+                                    <View style={styles.c2DotDropInner} />
+                                </View>
                             </View>
 
-                            {/* Book Button */}
-                            <TouchableOpacity style={styles.bookButton} activeOpacity={0.9} onPress={handleConfirmBooking}>
-                                <Text style={styles.bookButtonText}>Book {selectedService?.name || 'Ride'}</Text>
-                            </TouchableOpacity>
+                            <View style={styles.c2RouteTextCol}>
+                                <View style={styles.c2RouteLocation}>
+                                    <Text style={styles.c2Label}>PICKUP</Text>
+                                    <Text style={styles.c2Name} numberOfLines={1}>{pickupAddress}</Text>
+                                </View>
+                                <View style={{ height: 16 }} />
+                                <View style={styles.c2RouteLocation}>
+                                    <Text style={styles.c2Label}>DROPOFF</Text>
+                                    <Text style={styles.c2Name} numberOfLines={1}>{dropAddress}</Text>
+                                </View>
+                            </View>
                         </View>
-                    </>
+
+                        {/* Continue Button triggers C3 Passenger Sheet */}
+                        <TouchableOpacity style={styles.c2ContinueBtn} activeOpacity={0.9} onPress={() => passengerSheetRef.current?.expand()}>
+                            <Text style={styles.c2ContinueBtnText}>Continue</Text>
+                            <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
                 )}
             </View>
+
+            {/* PASSENGERS & LUGGAGE BOTTOM SHEET */}
+            <BottomSheet
+                ref={passengerSheetRef}
+                index={-1}
+                snapPoints={['50%']}
+                enablePanDownToClose
+                handleIndicatorStyle={styles.sheetHandle}
+                backgroundStyle={styles.passengerSheetBackground}
+                style={{ zIndex: 999, elevation: 20 }}
+            >
+                <BottomSheetView style={styles.sheetContent}>
+                    <View>
+                        <Text style={styles.psgTitle}>Passengers & Luggage</Text>
+                        <Text style={styles.psgSubtitle}>Select the number of travelers and bags.</Text>
+
+                        {/* Passengers */}
+                        <View style={styles.psgRow}>
+                            <View style={styles.psgIconBox}>
+                                <Ionicons name="people" size={24} color="#FFF" />
+                            </View>
+                            <View style={styles.psgInfo}>
+                                <Text style={styles.psgLabel}>Passengers</Text>
+                                <Text style={styles.psgLimit}>Max 10 per ride</Text>
+                            </View>
+                            <View style={styles.stepperZone}>
+                                <TouchableOpacity style={styles.stepperBtn} onPress={() => setPassengers(Math.max(1, passengers - 1))}>
+                                    <Ionicons name="remove" size={20} color="#0F172A" />
+                                </TouchableOpacity>
+                                <Text style={styles.stepperVal}>{passengers}</Text>
+                                <TouchableOpacity style={styles.stepperBtn} onPress={() => setPassengers(Math.min(10, passengers + 1))}>
+                                    <Ionicons name="add" size={20} color="#0F172A" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        {/* Luggage */}
+                        <View style={styles.psgRow}>
+                            <View style={styles.psgIconBox}>
+                                <Ionicons name="briefcase" size={24} color="#FFF" />
+                            </View>
+                            <View style={styles.psgInfo}>
+                                <Text style={styles.psgLabel}>Luggage</Text>
+                                <Text style={styles.psgLimit}>Large suitcases (Max 6)</Text>
+                            </View>
+                            <View style={styles.stepperZone}>
+                                <TouchableOpacity style={styles.stepperBtn} onPress={() => setLuggage(Math.max(0, luggage - 1))}>
+                                    <Ionicons name="remove" size={20} color="#0F172A" />
+                                </TouchableOpacity>
+                                <Text style={styles.stepperVal}>{luggage}</Text>
+                                <TouchableOpacity style={styles.stepperBtn} onPress={() => setLuggage(Math.min(6, luggage + 1))}>
+                                    <Ionicons name="add" size={20} color="#0F172A" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Footer fixed */}
+                    <View style={[styles.bottomApplyZone, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                        <TouchableOpacity style={styles.applyBtn} onPress={() => {
+                            passengerSheetRef.current?.close();
+                            router.push({
+                                pathname: '/plan-route',
+                                params: {
+                                    pickupLat: params.pickupLat,
+                                    pickupLng: params.pickupLng,
+                                    dropLat: params.dropLat,
+                                    dropLng: params.dropLng
+                                }
+                            });
+                        }}>
+                            <Text style={styles.applyBtnText}>Apply</Text>
+                            <Ionicons name="checkmark" size={20} color="#92400E" />
+                        </TouchableOpacity>
+                    </View>
+                </BottomSheetView>
+            </BottomSheet>
+
         </View>
     );
 }
@@ -520,4 +603,236 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: colors.ink,
     },
+    // Passenger & Luggage UI Styles
+    passengerSheetBackground: {
+        backgroundColor: colors.white,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        elevation: 20,
+    },
+    sheetHandle: {
+        width: 40,
+        height: 5,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 2.5,
+        marginTop: 10,
+    },
+    sheetContent: {
+        flex: 1,
+        justifyContent: 'space-between',
+    },
+    psgTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#0F172A',
+        marginTop: 12,
+        marginHorizontal: 20,
+    },
+    psgSubtitle: {
+        fontSize: 14,
+        color: '#475569',
+        marginHorizontal: 20,
+        marginBottom: 24,
+        marginTop: 6,
+    },
+    psgRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 24,
+    },
+    psgIconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: '#0F172A', // Navy per design
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    psgInfo: {
+        flex: 1,
+    },
+    psgLabel: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#0F172A',
+    },
+    psgLimit: {
+        fontSize: 12,
+        color: '#475569',
+        marginTop: 4,
+    },
+    stepperZone: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F1F5F9', // light gray
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+    },
+    stepperBtn: {
+        padding: 6,
+    },
+    stepperVal: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#0F172A',
+        marginHorizontal: 16,
+        minWidth: 16,
+        textAlign: 'center',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F1F5F9',
+        marginHorizontal: 20,
+        marginBottom: 24,
+    },
+    bottomApplyZone: {
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+    },
+    applyBtn: {
+        backgroundColor: '#FBBF24', // Golden yellow
+        width: '100%',
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    applyBtnText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#92400E',
+        marginRight: 8,
+    },
+    // --- C2 Preview Bottom Sheet Styles ---
+    c2Container: {
+        paddingHorizontal: 20,
+    },
+    c2HeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    c2TimeInfo: {
+        flex: 1,
+    },
+    c2Distance: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#0F172A',
+    },
+    c2Duration: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#475569',
+    },
+    c2Subtitle: {
+        fontSize: 13,
+        color: '#475569',
+        marginTop: 4,
+    },
+    c2SurgePill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF3C7',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    c2SurgeText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#92400E',
+        marginLeft: 4,
+    },
+    c2Divider: {
+        height: 1,
+        backgroundColor: '#F1F5F9',
+        marginVertical: 12,
+    },
+    c2RouteBlock: {
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        marginBottom: 24,
+        paddingTop: 8,
+    },
+    c2RouteLineCol: {
+        width: 30,
+        alignItems: 'center',
+    },
+    c2DotPickup: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        borderWidth: 4,
+        borderColor: '#0F172A',
+        backgroundColor: '#FFF',
+    },
+    c2DotPickupInner: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#0F172A',
+    },
+    c2VerticalLink: {
+        width: 2,
+        flex: 1,
+        backgroundColor: '#E2E8F0',
+        marginVertical: 4,
+    },
+    c2DotDropoff: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#F59E0B',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 2,
+    },
+    c2DotDropInner: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#FFF',
+    },
+    c2RouteTextCol: {
+        flex: 1,
+        marginLeft: 12,
+        justifyContent: 'center',
+    },
+    c2RouteLocation: {
+        justifyContent: 'center',
+    },
+    c2Label: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#64748B',
+        letterSpacing: 0.5,
+        marginBottom: 2,
+    },
+    c2Name: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#0F172A',
+    },
+    c2ContinueBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#000000',
+        paddingVertical: 18,
+        borderRadius: 14,
+    },
+    c2ContinueBtnText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        marginRight: 8,
+    }
 });
