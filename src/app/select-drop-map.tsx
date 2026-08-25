@@ -53,7 +53,7 @@ export default function SelectDropMapScreen() {
     }, [params.pickupLat, params.pickupLng, currentUserLocation]);
 
     // Handle Map Center settling
-    const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+    const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const reverseGeocodeCoordinates = async (lat: number, lng: number) => {
         try {

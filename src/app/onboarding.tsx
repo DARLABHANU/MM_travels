@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/Button';
-import { colors, radius, spacing, typography } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -108,8 +108,12 @@ export default function OnboardingScreen() {
                     onMomentumScrollEnd={onMomentumScrollEnd}
                     renderItem={renderItem}
                 />
+            </View>
 
-                {/* Progress Dots */}
+            {/* Copy Sheet */}
+            <View style={styles.copySheet}>
+                {/* Progress Dots moved inside/above sheet based strictly on spec: "progress dots... copy sheet" */}
+                {/* Actually spec says: Progress dots 3 pill/dot indicators centered... Copy sheet White rounded-top panel */}
                 <View style={styles.paginationContainer}>
                     {SLIDES.map((_, index) => (
                         <TouchableOpacity
@@ -122,10 +126,7 @@ export default function OnboardingScreen() {
                         />
                     ))}
                 </View>
-            </View>
 
-            {/* Copy Sheet */}
-            <View style={styles.copySheet}>
                 <Text style={styles.titleText}>{SLIDES[currentIndex].title}</Text>
                 <Text style={styles.subtitleText}>{SLIDES[currentIndex].subtitle}</Text>
 
@@ -144,7 +145,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.white,
+        backgroundColor: colors.navy900,
     },
     header: {
         flexDirection: 'row',
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
     },
     skipText: {
-        color: colors.inkSoft,
+        color: '#B9C2D4',
         fontSize: 12,
         fontWeight: '600',
     },
@@ -174,8 +175,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     illustrationWrapper: {
-        width: 340,
-        height: 340,
+        width: 150,
+        height: 130,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
@@ -186,8 +187,8 @@ const styles = StyleSheet.create({
     },
     paginationContainer: {
         flexDirection: 'row',
-        position: 'absolute',
-        bottom: 30, // Just above the sheet
+        justifyContent: 'center',
+        marginBottom: 26,
         gap: 5,
     },
     dot: {
@@ -200,26 +201,26 @@ const styles = StyleSheet.create({
     },
     inactiveDot: {
         width: 6,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: '#3A4459',
     },
     copySheet: {
         backgroundColor: colors.white,
-        borderTopLeftRadius: radius.sheetTop,
-        borderTopRightRadius: radius.sheetTop,
+        borderTopLeftRadius: 26,
+        borderTopRightRadius: 26,
         paddingTop: 26,
         paddingHorizontal: 22,
-        paddingBottom: 40, // Expanded safe area pad at bottom
+        paddingBottom: 40,
     },
     titleText: {
-        fontSize: typography.display.fontSize,
-        fontWeight: typography.display.fontWeight,
+        fontSize: 19,
+        fontWeight: '800',
         color: colors.ink,
         marginBottom: 8,
     },
     subtitleText: {
         fontSize: 12.5,
         color: colors.inkSoft,
-        lineHeight: 12.5 * 1.5,
+        lineHeight: 18.75, // 12.5 * 1.5
         marginBottom: 18,
     },
     ctaContainer: {

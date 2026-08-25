@@ -186,7 +186,7 @@ export default function HomeMap({ onPickupLocationChange }: HomeMapProps) {
     };
 
     // ---- Mapbox native gesture callbacks ----
-    const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+    const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const reverseGeocodeCoordinates = async (lat: number, lng: number) => {
         try {

@@ -98,7 +98,18 @@ export default function HomeScreen() {
                     {/* SERVICE CARDS (Dynamic Grid) */}
                     <View style={styles.servicesRow}>
                         {SERVICES.map((srv, idx) => (
-                            <TouchableOpacity key={idx} activeOpacity={0.8} style={styles.serviceBlock}>
+                            <TouchableOpacity
+                                key={idx}
+                                activeOpacity={0.8}
+                                style={styles.serviceBlock}
+                                onPress={() => {
+                                    if (srv.label === 'Pool\nRide') {
+                                        router.push('/d1-pool-search');
+                                    } else {
+                                        router.push('/destination');
+                                    }
+                                }}
+                            >
                                 <View style={styles.serviceIconFrame}>
                                     <View style={[StyleSheet.absoluteFill, { backgroundColor: srv.color, borderRadius: 16 }]} />
                                     <Ionicons name={srv.icon as any} size={28} color={srv.iconColor} style={styles.serviceIconMock} />
@@ -110,7 +121,11 @@ export default function HomeScreen() {
 
                     {/* COMPACT PROMOTION BANNER */}
                     <View style={styles.promoBannerContainer}>
-                        <TouchableOpacity activeOpacity={0.9} style={styles.promoBannerCard}>
+                        <TouchableOpacity
+                            activeOpacity={0.9}
+                            style={styles.promoBannerCard}
+                            onPress={() => router.push('/destination')}
+                        >
                             <View style={styles.promoBannerContent}>
                                 <Text style={styles.promoBannerHeadline}>FIRST AUTO RIDE FREE</Text>
                                 <Text style={styles.promoBannerSubtext}>offer has been detected.</Text>
@@ -168,7 +183,11 @@ export default function HomeScreen() {
                     </ScrollView>
 
                     {/* Secondary Large Campaign Card */}
-                    <TouchableOpacity activeOpacity={0.9} style={styles.campaignCard}>
+                    <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.campaignCard}
+                        onPress={() => router.push('/destination')}
+                    >
                         <View style={{ flex: 1 }}>
                             <Text style={styles.campaignHeader}>Three wheels.{'\n'}Free wheels.</Text>
                             <Text style={styles.campaignSubText}>

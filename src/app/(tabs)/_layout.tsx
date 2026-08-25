@@ -2,82 +2,93 @@ import { colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
-    const insets = useSafeAreaInsets();
-
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: true,
                 tabBarActiveTintColor: colors.ink,
-                tabBarInactiveTintColor: colors.inkSoft,
+                tabBarInactiveTintColor: colors.inkFaint,
                 tabBarStyle: [
                     styles.tabBar,
                     {
-                        height: Platform.OS === 'ios' ? 76 : 60,
-                        paddingBottom: Platform.OS === 'ios' ? 24 : 6,
+                        height: Platform.OS === 'ios' ? 80 : 64,
+                        paddingBottom: Platform.OS === 'ios' ? 24 : 8,
                         paddingTop: 8,
                     }
                 ],
                 tabBarLabelStyle: styles.tabBarLabel,
                 tabBarHideOnKeyboard: true,
+                tabBarItemStyle: styles.tabBarItem,
             }}
         >
+            {/* B1 — Home */}
             <Tabs.Screen
                 name="index"
                 options={{
-                    title: 'Ride',
+                    title: 'Home',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={[styles.iconContainer]}>
-                            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+                        <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+                            <Ionicons name={focused ? 'home' : 'home-outline'} size={20} color={color} />
                         </View>
                     ),
                 }}
             />
-            {/* Using services.tsx for All Services */}
+            {/* I1 — Trips */}
             <Tabs.Screen
-                name="services"
+                name="trips"
                 options={{
-                    title: 'All Services',
+                    title: 'Trips',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={[styles.iconContainer]}>
-                            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={22} color={color} />
+                        <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+                            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={20} color={color} />
                         </View>
                     ),
                 }}
             />
-            {/* Using explore.tsx for Travel */}
+            {/* B3 — Explore */}
             <Tabs.Screen
                 name="explore"
                 options={{
-                    title: 'Travel',
+                    title: 'Explore',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={[styles.iconContainer]}>
-                            <Ionicons name={focused ? 'rocket' : 'rocket-outline'} size={22} color={color} />
+                        <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+                            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={20} color={color} />
                         </View>
                     ),
                 }}
             />
+            {/* J1 — Help */}
+            <Tabs.Screen
+                name="help"
+                options={{
+                    title: 'Help',
+                    tabBarIcon: ({ color, focused }) => (
+                        <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+                            <Ionicons name={focused ? 'headset' : 'headset-outline'} size={20} color={color} />
+                        </View>
+                    ),
+                }}
+            />
+            {/* K1 — Profile */}
             <Tabs.Screen
                 name="profile"
                 options={{
                     title: 'Profile',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={[styles.iconContainer]}>
-                            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+                        <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+                            <Ionicons name={focused ? 'person' : 'person-outline'} size={20} color={color} />
                         </View>
                     ),
                 }}
             />
 
-            {/* Hide all other files in (tabs) directory from rendering in the bottom nav */}
+            {/* Hidden routes — not part of bottom nav */}
             <Tabs.Screen name="activity" options={{ href: null }} />
             <Tabs.Screen name="account" options={{ href: null }} />
-            <Tabs.Screen name="help" options={{ href: null }} />
-            <Tabs.Screen name="trips" options={{ href: null }} />
+            <Tabs.Screen name="services" options={{ href: null }} />
         </Tabs>
     );
 }
@@ -86,20 +97,29 @@ const styles = StyleSheet.create({
     tabBar: {
         backgroundColor: colors.white,
         borderTopWidth: 1,
-        borderTopColor: '#F1F5F9', // Subtle top shadow/border per spec
-        elevation: 16, // strong shadow
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        borderTopColor: colors.line,
+        elevation: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
     },
     tabBarLabel: {
         fontSize: 10,
-        fontWeight: '600',
+        fontWeight: '700',
         marginTop: 2,
     },
-    iconContainer: {
+    tabBarItem: {
+        paddingHorizontal: 4,
+    },
+    iconWrap: {
+        width: 36,
+        height: 28,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    iconWrapActive: {
+        backgroundColor: colors.surface,
     },
 });

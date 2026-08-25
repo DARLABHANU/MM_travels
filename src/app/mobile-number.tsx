@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/Button';
-import { colors, radius, spacing, typography } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -102,38 +102,43 @@ export default function MobileNumberScreen() {
                         </View>
 
                         <Text style={styles.titleText}>Welcome to MM Travels</Text>
+                        <Text style={styles.subcopyText}>
+                            Book a city ride, an outstation trip, or a shared seat — all in one app.
+                        </Text>
 
-                        {/* Input Row */}
-                        <View style={styles.inputContainer}>
-                            <TouchableOpacity style={styles.countryCodeSelector} activeOpacity={0.7}>
-                                <Text style={styles.countryCodeText}>+91</Text>
-                                <Ionicons name="caret-down" size={12} color={colors.ink} style={styles.caret} />
-                            </TouchableOpacity>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
+                            <View style={styles.inputContainer}>
+                                <TouchableOpacity style={styles.countryCodeSelector} activeOpacity={0.7}>
+                                    <Text style={styles.countryCodeText}>+91</Text>
+                                </TouchableOpacity>
 
-                            <View style={styles.verticalDivider} />
-
-                            <TextInput
-                                style={styles.textInput}
-                                placeholder="Enter mobile number"
-                                placeholderTextColor={colors.inkFaint}
-                                keyboardType="numeric"
-                                maxLength={10}
-                                value={phoneNumber}
-                                onChangeText={setPhoneNumber}
-                            />
+                                <TextInput
+                                    style={styles.textInput}
+                                    placeholder="98765 43210"
+                                    placeholderTextColor={colors.inkFaint}
+                                    keyboardType="numeric"
+                                    maxLength={10}
+                                    value={phoneNumber}
+                                    onChangeText={(t) => setPhoneNumber(t.replace(/[^0-9]/g, ''))}
+                                />
+                            </View>
                         </View>
 
-                        <Text style={styles.helperText}>
-                            We'll send an OTP for verification
+                        <Text style={styles.legalMicrocopy}>
+                            By continuing, you agree to our{' '}
+                            <Text style={styles.legalLink} onPress={() => router.push('/k7-privacy')}>Terms</Text>
+                            {' '}and{' '}
+                            <Text style={styles.legalLink} onPress={() => router.push('/k7-privacy')}>Privacy Policy</Text>.
                         </Text>
 
                         <View style={styles.buttonContainer}>
                             <Button
-                                label="Continue"
+                                label={isLoading ? "Processing..." : "Continue"}
                                 variant="gold"
                                 disabled={isButtonDisabled}
                                 onPress={handleContinue}
-                                icon={<Ionicons name="arrow-forward" size={18} color="#3A2405" style={{ marginLeft: 8 }} />}
+                                icon={!isLoading && <Ionicons name="arrow-forward" size={14} color="#3A2405" style={{ marginLeft: 8 }} />}
                             />
                         </View>
                     </View>
@@ -163,8 +168,8 @@ const styles = StyleSheet.create({
     },
     skipText: {
         color: '#B9C2D4',
-        fontSize: 14,
-        fontWeight: '500',
+        fontSize: 12,
+        fontWeight: '600',
     },
     illustrationZone: {
         flex: 1,
@@ -172,94 +177,93 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     circleBackground: {
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        width: 150,
+        height: 130,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    carIcon: {
-        marginLeft: -20,
-        marginBottom: -10,
-    },
-    luggageIcon: {
-        position: 'absolute',
-        bottom: 50,
-        right: 40,
-    },
     bottomSheet: {
         backgroundColor: colors.white,
-        borderTopLeftRadius: radius.sheetTop,
-        borderTopRightRadius: radius.sheetTop,
-        paddingTop: 24,
+        borderTopLeftRadius: 26,
+        borderTopRightRadius: 26,
+        paddingTop: 26,
         paddingBottom: 40, // pad for safe area
     },
     sheetContent: {
         paddingHorizontal: 22,
-        alignItems: 'center',
     },
     dotsContainer: {
         flexDirection: 'row',
-        gap: 8,
-        marginBottom: 24,
+        justifyContent: 'center',
+        gap: 5,
+        marginBottom: 26,
     },
     dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#D1D5DB',
+        width: 6,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#3A4459',
     },
     dotActive: {
+        width: 16,
         backgroundColor: colors.gold,
     },
     titleText: {
-        fontSize: typography.display.fontSize,
-        fontWeight: typography.display.fontWeight,
+        fontSize: 19,
+        fontWeight: '800',
         color: colors.ink,
-        marginBottom: 32,
-        textAlign: 'center',
+        marginBottom: 8,
+    },
+    subcopyText: {
+        fontSize: 12.5,
+        color: '#6B7280',
+        lineHeight: 18.75, // 12.5 * 1.5
+        marginBottom: 18,
+    },
+    formGroup: {
+        marginBottom: 14,
+    },
+    fieldLabel: {
+        fontSize: 10.5,
+        fontWeight: '700',
+        color: '#9CA3AF',
+        letterSpacing: 0.3,
+        marginBottom: 8,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderBottomWidth: 1.5,
-        borderBottomColor: '#D1D5DB',
-        paddingBottom: 8,
-        width: '100%',
-        marginBottom: 16,
+        borderBottomWidth: 2,
+        borderBottomColor: colors.gold,
+        paddingBottom: 10,
+        paddingHorizontal: 4,
     },
     countryCodeSelector: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingRight: 8,
+        marginRight: 8,
     },
     countryCodeText: {
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: '700',
         color: colors.ink,
     },
-    caret: {
-        marginLeft: 4,
-    },
-    verticalDivider: {
-        width: 1,
-        height: 20,
-        backgroundColor: '#D1D5DB',
-        marginHorizontal: 12,
-    },
     textInput: {
         flex: 1,
-        fontSize: 15,
-        fontWeight: '500',
+        fontSize: 14,
+        fontWeight: '600',
         color: colors.ink,
         paddingVertical: 0,
+        letterSpacing: 1,
     },
-    helperText: {
-        fontSize: 12,
-        color: colors.inkSoft,
-        fontWeight: '600',
-        marginBottom: 32,
+    legalMicrocopy: {
+        fontSize: 10.5,
+        color: '#9CA3AF',
+        marginBottom: 24,
+    },
+    legalLink: {
+        fontWeight: '700',
+        color: colors.ink,
     },
     buttonContainer: {
         width: '100%',

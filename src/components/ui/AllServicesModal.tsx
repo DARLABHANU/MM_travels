@@ -5,22 +5,25 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { forwardRef, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useRouter } from 'expo-router';
+
 interface AllServicesModalProps {
     onDismiss?: () => void;
 }
 
 const ALL_SERVICES = [
-    { id: 'shared_auto', name: 'Shared\nAuto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false },
-    { id: 'parcel_bike', name: 'Parcel on\nBike', icon: 'bicycle', badge: 'cube', iconColor: '#713F12', bg: '#FFFBEB', gradient: ['#FDE047', '#EAB308'], isNew: false },
-    { id: 'auto', name: 'Auto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false },
-    { id: 'cab_economy', name: 'Cab\nEconomy', icon: 'car', iconColor: '#0F172A', bg: '#F8FAFC', gradient: ['#E2E8F0', '#CBD5E1'], isNew: false },
-    { id: 'bike', name: 'Bike', icon: 'bicycle', iconColor: '#1E293B', bg: '#F1F5F9', gradient: ['#CBD5E1', '#94A3B8'], isNew: false },
-    { id: 'bike_lite', name: 'Bike Lite', icon: 'bicycle', badge: 'pricetag', iconColor: '#14532D', bg: '#DCFCE7', gradient: ['#86EFAC', '#4ADE80'], isNew: false },
-    { id: 'cab_premium', name: 'Cab\nPremium', icon: 'car', iconColor: '#854D0E', bg: '#FEF9C3', gradient: ['#FDE047', '#EAB308'], isNew: true },
-    { id: 'travel', name: 'Travel', icon: 'bus', iconColor: '#1E3A8A', bg: '#DBEAFE', gradient: ['#93C5FD', '#60A5FA'], isNew: false },
+    { id: 'shared_auto', name: 'Shared\nAuto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false, route: '/d1-pool-search' },
+    { id: 'parcel_bike', name: 'Parcel on\nBike', icon: 'bicycle', badge: 'cube', iconColor: '#713F12', bg: '#FFFBEB', gradient: ['#FDE047', '#EAB308'], isNew: false, route: '/destination' },
+    { id: 'auto', name: 'Auto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false, route: '/destination' },
+    { id: 'cab_economy', name: 'Cab\nEconomy', icon: 'car', iconColor: '#0F172A', bg: '#F8FAFC', gradient: ['#E2E8F0', '#CBD5E1'], isNew: false, route: '/destination' },
+    { id: 'bike', name: 'Bike', icon: 'bicycle', iconColor: '#1E293B', bg: '#F1F5F9', gradient: ['#CBD5E1', '#94A3B8'], isNew: false, route: '/destination' },
+    { id: 'bike_lite', name: 'Bike Lite', icon: 'bicycle', badge: 'pricetag', iconColor: '#14532D', bg: '#DCFCE7', gradient: ['#86EFAC', '#4ADE80'], isNew: false, route: '/destination' },
+    { id: 'cab_premium', name: 'Cab\nPremium', icon: 'car', iconColor: '#854D0E', bg: '#FEF9C3', gradient: ['#FDE047', '#EAB308'], isNew: true, route: '/destination' },
+    { id: 'travel', name: 'Travel', icon: 'bus', iconColor: '#1E3A8A', bg: '#DBEAFE', gradient: ['#93C5FD', '#60A5FA'], isNew: false, route: '/d1-pool-search' },
 ];
 
 export const AllServicesModal = forwardRef<BottomSheet, AllServicesModalProps>(({ onDismiss }, ref) => {
+    const router = useRouter();
     // Snap points for the modal. We use fixed percentages relative to the screen.
     const snapPoints = useMemo(() => ['70%'], []);
 
@@ -67,7 +70,18 @@ export const AllServicesModal = forwardRef<BottomSheet, AllServicesModalProps>((
             </View>
             <BottomSheetScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.gridContainer}>
                 {ALL_SERVICES.map((svc) => (
-                    <TouchableOpacity key={svc.id} activeOpacity={0.7} style={styles.serviceItem}>
+                    <TouchableOpacity
+                        key={svc.id}
+                        activeOpacity={0.7}
+                        style={styles.serviceItem}
+                        onPress={() => {
+                            if (ref && 'current' in ref && ref.current) {
+                                ref.current.close(); // Close modal first
+                            }
+                            // Then navigate
+                            router.push(svc.route as any);
+                        }}
+                    >
                         <View style={[styles.svcIconBlock, { backgroundColor: svc.bg }]}>
                             <LinearGradient colors={svc.gradient as [string, string]} style={styles.vehicleIllustBackground} />
                             <Ionicons name={svc.icon as any} size={28} color={svc.iconColor} style={{ marginTop: 6 }} />

@@ -126,7 +126,14 @@ export default function KYCScreen() {
 
     return (
         <SafeAreaView edges={['top']} style={styles.container}>
-            <BackHeader title="Identity verification" />
+            <View style={styles.headerRow}>
+                <BackHeader title="Identity verification" />
+                {uploadedCount < 2 && (
+                    <View style={styles.actionRequiredPill}>
+                        <Text style={styles.actionRequiredText}>Action Required</Text>
+                    </View>
+                )}
+            </View>
 
             <View style={styles.content}>
                 {renderStatusBanner()}
@@ -242,10 +249,27 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.white,
     },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingRight: 16,
+    },
+    actionRequiredPill: {
+        backgroundColor: colors.roseTint,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    actionRequiredText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: colors.danger,
+    },
     content: {
         flex: 1,
         paddingHorizontal: spacing.screenPadX,
-        paddingTop: 24,
+        paddingTop: 8,
     },
     bannerPending: {
         flexDirection: 'row',
@@ -374,7 +398,7 @@ const styles = StyleSheet.create({
         borderRadius: 32,
         backgroundColor: colors.white,
         borderWidth: 4,
-        borderColor: colors.ink,
+        borderColor: colors.line, // Spec states white target, gold center. We'll use a soft border.
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
@@ -383,7 +407,7 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: colors.ink,
+        backgroundColor: colors.gold,
     },
     galleryLink: {
         fontSize: 12,

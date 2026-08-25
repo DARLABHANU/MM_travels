@@ -3,7 +3,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
     Easing,
@@ -51,7 +51,7 @@ const PulsingPin = () => {
 
             {/* Center Pin Graphic */}
             <View style={styles.pinCore}>
-                <Ionicons name="location" size={32} color={colors.white} />
+                <Ionicons name="location" size={56} color={colors.white} />
             </View>
         </View>
     );
@@ -101,7 +101,7 @@ export default function PermissionsScreen() {
 
                 <View style={styles.actionBlock}>
                     <Button
-                        label="Allow Access"
+                        label="Allow location access"
                         variant="gold"
                         onPress={handleAllow}
                     />
@@ -111,7 +111,7 @@ export default function PermissionsScreen() {
                         onPress={handleSkip}
                         activeOpacity={0.7}
                     >
-                        <Text style={styles.secondaryText}>Maybe Later</Text>
+                        <Text style={styles.secondaryText}>Enter location manually</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -130,8 +130,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     pinContainer: {
-        width: 64,
-        height: 64,
+        width: 120,
+        height: 120,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -139,17 +139,16 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 0, bottom: 0, left: 0, right: 0,
         borderWidth: 2,
-        borderRadius: 64, // ensures perfect circle
+        borderRadius: 120, // ensures perfect circle
     },
     pinCore: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: colors.gold,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: colors.goldDark,
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 10, // Bring above the rings
-        // Subtle shadow
+        zIndex: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
