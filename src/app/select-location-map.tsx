@@ -7,12 +7,19 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserLocation } from '../hooks/useUserLocation';
 import { formatAddress, reverseGeocode } from '../services/location/geocodingService';
+import { useIntentStore } from '../store/intentStore';
 import { Address, Coordinate } from '../types/location';
 
-export default function SelectDropMapScreen() {
+export default function SelectLocationMapScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const params = useLocalSearchParams<{ pickupLat?: string, pickupLng?: string }>();
+    // Decoupled from hardcoded pickup/drop
+    const params = useLocalSearchParams<{ role?: string, pinType?: string, title?: string, returnAction?: string, initialLat?: string, initialLng?: string, mapLat?: string, mapLng?: string }>();
+    const { role = 'dropoff', pinType = 'dropoff', title = 'Select location', returnAction = 'mapSelected' } = params;
+
+    // We expect mapLat/mapLng normally, but allow initialLat backup
+    const initialLat = params.mapLat || params.initialLat;
+    const initialLng = params.mapLng || params.initialLng;
     const { currentUserLocation } = useUserLocation();
 
     // Map references
@@ -35,8 +42,8 @@ export default function SelectDropMapScreen() {
 
         let initialCoord: Coordinate = { latitude: 17.6868, longitude: 83.2185 }; // Default Vizag fallback
 
-        if (params.pickupLat && params.pickupLng) {
-            initialCoord = { latitude: parseFloat(params.pickupLat), longitude: parseFloat(params.pickupLng) };
+        if (initialLat && initialLng) {
+            initialCoord = { latitude: parseFloat(initialLat), longitude: parseFloat(initialLng) };
         } else if (currentUserLocation) {
             initialCoord = currentUserLocation;
         }
@@ -50,7 +57,7 @@ export default function SelectDropMapScreen() {
                 animationDuration: 1000,
             });
         }
-    }, [params.pickupLat, params.pickupLng, currentUserLocation]);
+    }, [initialLat, initialLng, currentUserLocation]);
 
     // Handle Map Center settling
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,25 +98,33 @@ export default function SelectDropMapScreen() {
         }
     };
 
-    const handleSelectDrop = () => {
+    // Format display string
+    let displayTitle = 'Selected Location';
+    let displaySubtitle = 'Locating...';
+
+    if (!isGeocoding && selectedDropAddress) {
+        const fmt = formatAddress(selectedDropAddress);
+        displayTitle = fmt.title;
+        displaySubtitle = fmt.subtitle;
+    } else if (isGeocoding) {
+        displayTitle = 'Locating...';
+        displaySubtitle = 'Move map or stand by';
+    }
+
+    const setLocationToStore = useIntentStore(state => state.setLocation);
+
+    const handleSelectLocation = () => {
         if (!selectedDropCoord) return;
 
-        if (!params.pickupLat || !params.pickupLng) {
-            console.warn("Cannot proceed: Missing Pickup Coordinates");
-            router.back();
-            return;
-        }
+        // Structured Location Result saved to Authoritative Domain Store
+        setLocationToStore(
+            role as any,
+            { latitude: selectedDropCoord.latitude, longitude: selectedDropCoord.longitude },
+            { name: displayTitle, formattedAddress: displaySubtitle, streetNumber: null, street: null, district: null, city: null, region: null, postalCode: null, country: null }
+        );
 
-        // Fulfill PDF Spec: IMMEDIATELY proceed to Ride Selection / Route Generation
-        router.push({
-            pathname: '/ride-selection',
-            params: {
-                pickupLat: params.pickupLat,
-                pickupLng: params.pickupLng,
-                dropLat: selectedDropCoord.latitude.toString(),
-                dropLng: selectedDropCoord.longitude.toString()
-            }
-        });
+        // Return perfectly to parent (preserves Service flow completely)
+        router.back();
     };
 
     const jumpToCurrentLocation = () => {
@@ -122,18 +137,10 @@ export default function SelectDropMapScreen() {
         }
     };
 
-    // Format display string
-    let displayTitle = 'Selected Location';
-    let displaySubtitle = 'Locating...';
-
-    if (!isGeocoding && selectedDropAddress) {
-        const fmt = formatAddress(selectedDropAddress);
-        displayTitle = fmt.title;
-        displaySubtitle = fmt.subtitle;
-    } else if (isGeocoding) {
-        displayTitle = 'Locating...';
-        displaySubtitle = 'Fetching address details';
-    }
+    // Role styling evaluation
+    const isPickupType = pinType === 'pickup' || pinType === 'sender' || pinType === 'boarding';
+    const pinColor = isPickupType ? colors.green : '#EF4444';
+    const pinInnerColor = isPickupType ? colors.ink : colors.white;
 
     return (
         <View style={styles.container}>
@@ -165,13 +172,13 @@ export default function SelectDropMapScreen() {
                 </MapView>
             )}
 
-            {/* FIXED CENTER OVERLAY (DROP MARKER) */}
+            {/* FIXED CENTER OVERLAY (ROLE-AWARE MARKER) */}
             <View style={styles.fixedCenterOverlay} pointerEvents="none">
                 <View style={styles.dropMarkerContainer}>
-                    <View style={styles.dropOuterCircle}>
-                        <View style={styles.dropInnerCircle} />
+                    <View style={[styles.dropOuterCircle, { backgroundColor: pinColor }]}>
+                        <View style={[styles.dropInnerCircle, { backgroundColor: pinInnerColor }]} />
                     </View>
-                    <View style={styles.dropStem} />
+                    <View style={[styles.dropStem, { backgroundColor: pinColor }]} />
                 </View>
             </View>
 
@@ -193,16 +200,16 @@ export default function SelectDropMapScreen() {
             <View style={[styles.bottomPanel, { paddingBottom: Math.max(insets.bottom + 20, 30) }]}>
                 {/* Panel Header */}
                 <View style={styles.panelHeader}>
-                    <Text style={styles.panelTitle}>Select your location</Text>
+                    <Text style={styles.panelTitle}>{title}</Text>
                     <TouchableOpacity onPress={() => router.back()}>
-                        <Text style={styles.changeActionText}>Change</Text>
+                        <Text style={[styles.changeActionText, isPickupType ? { color: colors.green } : {}]}>Change</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Location Display Card */}
                 <View style={styles.locationCard}>
                     <View style={styles.cardIconWrapper}>
-                        <Ionicons name="location" size={22} color="#EF4444" />
+                        <Ionicons name="location" size={22} color={pinColor} />
                     </View>
                     <View style={styles.cardTextWrapper}>
                         <Text style={styles.cardTitle} numberOfLines={1}>{displayTitle}</Text>
@@ -214,10 +221,10 @@ export default function SelectDropMapScreen() {
                 <TouchableOpacity
                     style={[styles.primaryButton, isGeocoding && styles.primaryButtonDisabled]}
                     activeOpacity={0.9}
-                    onPress={handleSelectDrop}
+                    onPress={handleSelectLocation}
                     disabled={isGeocoding}
                 >
-                    <Text style={styles.primaryButtonText}>Select Drop</Text>
+                    <Text style={styles.primaryButtonText}>Confirm {title.replace('Select ', '') || 'Location'}</Text>
                 </TouchableOpacity>
             </View>
         </View>

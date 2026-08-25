@@ -41,18 +41,48 @@ export default function PoolSearchScreen() {
             </View>
 
             {/* Filter chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                {FILTERS.map((f) => (
-                    <TouchableOpacity
-                        key={f.key}
-                        style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
-                        onPress={() => setFilter(f.key as FilterKey)}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+            <View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                    {FILTERS.map((f) => (
+                        <TouchableOpacity
+                            key={f.key}
+                            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+                            onPress={() => setFilter(f.key as FilterKey)}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
+            {/* UPCOMING TIMELINE */}
+            <View style={styles.timelineSection}>
+                <Text style={styles.timelineHeaderLabel}>UPCOMING DEPARTURES</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timelineRow}>
+                    <TouchableOpacity style={styles.timelineCard}>
+                        <View style={[styles.timelineBadge, styles.timelineBadgeUrgent]}>
+                            <Text style={styles.timelineBadgeTextUrgent}>In 5 mins</Text>
+                        </View>
+                        <Text style={styles.timelineSeats}>2 seats left</Text>
+                        <Text style={styles.timelineAction}>Book now →</Text>
                     </TouchableOpacity>
-                ))}
-            </ScrollView>
+                    <TouchableOpacity style={styles.timelineCard}>
+                        <View style={styles.timelineBadge}>
+                            <Text style={styles.timelineBadgeText}>In 15 mins</Text>
+                        </View>
+                        <Text style={styles.timelineSeats}>4 seats left</Text>
+                        <Text style={styles.timelineAction}>Filling fast</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.timelineCard}>
+                        <View style={styles.timelineBadge}>
+                            <Text style={styles.timelineBadgeText}>In 30 mins</Text>
+                        </View>
+                        <Text style={styles.timelineSeats}>8 seats left</Text>
+                        <Text style={styles.timelineAction}>Scheduled</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </View>
 
             {/* Results */}
             <FlatList
@@ -140,4 +170,16 @@ const styles = StyleSheet.create({
     cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 },
     metaTag: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     metaLabel: { fontSize: 11, fontWeight: '600', color: colors.inkSoft },
+
+    // Timeline Styles
+    timelineSection: { marginTop: 10, marginBottom: 20 },
+    timelineHeaderLabel: { fontSize: 10, fontWeight: '700', color: colors.inkFaint, letterSpacing: 0.5, paddingHorizontal: spacing.screenPadX, marginBottom: 12 },
+    timelineRow: { paddingHorizontal: spacing.screenPadX, gap: 12, paddingBottom: 6 },
+    timelineCard: { width: 130, padding: 12, borderRadius: radius.card, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, shadowColor: "rgba(0,0,0,0.05)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 4, elevation: 2 },
+    timelineBadge: { backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 12 },
+    timelineBadgeUrgent: { backgroundColor: colors.roseTint },
+    timelineBadgeText: { fontSize: 10, fontWeight: '700', color: colors.ink },
+    timelineBadgeTextUrgent: { fontSize: 10, fontWeight: '700', color: colors.rose },
+    timelineSeats: { fontSize: 14, fontWeight: '700', color: colors.ink, marginBottom: 4 },
+    timelineAction: { fontSize: 11, fontWeight: '600', color: colors.goldDark },
 });

@@ -4,25 +4,56 @@ import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import HomeMap from '../../components/map/HomeMap';
 import { AllServicesModal } from '../../components/ui/AllServicesModal';
 import { formatAddress } from '../../services/location/geocodingService';
 import { Address, Coordinate } from '../../types/location';
 
-const SERVICES = [
-    { label: 'City\nRide', icon: 'car', color: '#E2FBE9', iconColor: '#065F46' },
-    { label: 'Outstation', icon: 'map', color: '#FEF3C7', iconColor: '#B45309' },
-    { label: 'Local\nHourly', icon: 'time', color: '#E0E7FF', iconColor: '#4338CA' },
-    { label: 'Self\nDrive', icon: 'key', color: '#FCE7F3', iconColor: '#BE185D' },
-    { label: 'Pool\nRide', icon: 'people', color: '#F3E8FF', iconColor: '#7E22CE' },
+import { BookingIntent, useIntentStore } from '../../store/intentStore';
+
+// Fixed Core Riding Options
+const QUICK_RIDES = [
+    { label: 'Bike', icon: 'bicycle', color: '#E9EEF7', iconColor: '#3B5A8A', intent: { serviceId: 'city_ride', vehicleCategory: 'bike', flowType: 'CITY_RIDE' } },
+    { label: 'Auto', icon: 'car-outline', color: '#FDF0DA', iconColor: '#B45309', intent: { serviceId: 'city_ride', vehicleCategory: 'auto', flowType: 'CITY_RIDE' } },
+    { label: 'Cab', icon: 'car', color: '#E2FBE9', iconColor: '#065F46', intent: { serviceId: 'city_ride', vehicleCategory: 'cab', flowType: 'CITY_RIDE' } },
+    { label: 'XL', icon: 'bus', color: '#F3E9F5', iconColor: '#8B4A9C', intent: { serviceId: 'city_ride', vehicleCategory: 'xl', flowType: 'CITY_RIDE' } },
+];
+
+// Recommended / Specialized Services (Dynamically ordered)
+const SPECIALIZED_SERVICES = [
+    { label: 'Pool\nRide', icon: 'people', color: '#FDEAEF', iconColor: '#C24B6E', intent: { serviceId: 'pool', flowType: 'POOL' } },
+    { label: 'Outstation', icon: 'map', color: '#FEF3C7', iconColor: '#B45309', intent: { serviceId: 'outstation', flowType: 'OUTSTATION' } },
+    { label: 'Rental', icon: 'time', color: '#E0E7FF', iconColor: '#4338CA', intent: { serviceId: 'rental', flowType: 'RENTAL' } },
+    { label: 'Parcel', icon: 'cube', color: '#FCE7F3', iconColor: '#BE185D', intent: { serviceId: 'parcel', flowType: 'PARCEL' } },
 ];
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
     const router = useRouter();
+    const setIntent = useIntentStore(state => state.setIntent);
+
+    const dynamicRecommendations = useMemo(() => {
+        const hour = new Date().getHours();
+        const isWeekend = new Date().getDay() === 0 || new Date().getDay() === 6;
+        let priorityMap: Record<string, number> = {};
+
+        if (isWeekend) {
+            priorityMap = { 'Outstation': 1, 'Rental': 2, 'Pool\nRide': 3 };
+        } else if (hour >= 7 && hour <= 10) {
+            priorityMap = { 'Pool\nRide': 1, 'Outstation': 2 };
+        } else {
+            priorityMap = { 'Rental': 1, 'Pool\nRide': 2, 'Parcel': 3 };
+        }
+
+        return [...SPECIALIZED_SERVICES].sort((a, b) => {
+            const pA = priorityMap[a.label] || 99;
+            const pB = priorityMap[b.label] || 99;
+            return pA - pB;
+        });
+    }, []);
     const bottomSheetRef = useRef<BottomSheet>(null);
     const servicesModalRef = useRef<BottomSheet>(null);
 
@@ -33,17 +64,37 @@ export default function HomeScreen() {
     // Initial snap point carefully tuned to mimic Rapido's visible collapsed state: Search + Explore + Promo
     const snapPoints = useMemo(() => ['43%', '94%'], []);
 
+    // App Kill / Resume Trip Recovery (UX Lockdown Phase P0.2)
+    useEffect(() => {
+        const fetchCurrentRide = async () => {
+            try {
+                const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/api/bookings/current`);
+                const data = await res.json();
+                if (data && data.booking && data.booking.status !== 'NONE' && data.booking.status !== 'COMPLETED') {
+                    console.log("Trip Resumed from App Open");
+                    router.replace('/f2-live-tracking');
+                }
+            } catch (e) {
+                // Ignore silent network failure on boot
+            }
+        };
+        fetchCurrentRide();
+    }, []);
+
     const handlePickupChange = (coord: Coordinate, location: Address | null) => {
         setSelectedCoord(coord);
         setSelectedAddress(location);
     };
 
-    const navToDestination = () => {
+    const navToDestination = (intent: BookingIntent = { serviceId: 'city_ride', vehicleCategory: 'cab', flowType: 'CITY_RIDE' }) => {
+        setIntent(intent);
+
         if (selectedCoord) {
             let title = 'Current Location';
             if (selectedAddress) {
                 title = formatAddress(selectedAddress).title;
             }
+            // Temporarily store initial location (could also dispatch to store)
             router.push({
                 pathname: '/destination',
                 params: {
@@ -53,7 +104,7 @@ export default function HomeScreen() {
                 }
             });
         } else {
-            router.push('/destination');
+            router.push({ pathname: '/destination' });
         }
     };
 
@@ -81,34 +132,37 @@ export default function HomeScreen() {
                 <BottomSheetScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
 
                     {/* SEARCH BAR */}
-                    <TouchableOpacity activeOpacity={0.9} style={styles.searchBar} onPress={navToDestination}>
+                    <TouchableOpacity activeOpacity={0.9} style={styles.searchBar} onPress={() => navToDestination()}>
                         <Ionicons name="search" size={20} color={colors.ink} style={{ marginRight: 10 }} />
                         <Text style={styles.searchPlaceholderText}>Where do you want to go?</Text>
                     </TouchableOpacity>
 
-                    {/* EXPLORE SECTION */}
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Explore</Text>
-                        <TouchableOpacity style={styles.viewAllBtn} onPress={() => servicesModalRef.current?.expand()}>
-                            <Text style={styles.viewAllText}>View All</Text>
-                            <Ionicons name="chevron-forward" size={14} color={colors.inkSoft} />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* SERVICE CARDS (Dynamic Grid) */}
+                    <Text style={styles.sectionHeaderTitle}>QUICK RIDES</Text>
                     <View style={styles.servicesRow}>
-                        {SERVICES.map((srv, idx) => (
+                        {QUICK_RIDES.map((srv, idx) => (
                             <TouchableOpacity
-                                key={idx}
+                                key={`quick-${idx}`}
                                 activeOpacity={0.8}
                                 style={styles.serviceBlock}
-                                onPress={() => {
-                                    if (srv.label === 'Pool\nRide') {
-                                        router.push('/d1-pool-search');
-                                    } else {
-                                        router.push('/destination');
-                                    }
-                                }}
+                                onPress={() => navToDestination(srv.intent as BookingIntent)}
+                            >
+                                <View style={styles.serviceIconFrame}>
+                                    <View style={[StyleSheet.absoluteFill, { backgroundColor: srv.color, borderRadius: 16 }]} />
+                                    <Ionicons name={srv.icon as any} size={28} color={srv.iconColor} style={styles.serviceIconMock} />
+                                </View>
+                                <Text style={styles.serviceLabel}>{srv.label}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <Text style={styles.sectionHeaderTitle}>RECOMMENDED</Text>
+                    <View style={styles.servicesRow}>
+                        {dynamicRecommendations.map((srv, idx) => (
+                            <TouchableOpacity
+                                key={`rec-${idx}`}
+                                activeOpacity={0.8}
+                                style={styles.serviceBlock}
+                                onPress={() => navToDestination(srv.intent as BookingIntent)}
                             >
                                 <View style={styles.serviceIconFrame}>
                                     <View style={[StyleSheet.absoluteFill, { backgroundColor: srv.color, borderRadius: 16 }]} />
@@ -124,7 +178,7 @@ export default function HomeScreen() {
                         <TouchableOpacity
                             activeOpacity={0.9}
                             style={styles.promoBannerCard}
-                            onPress={() => router.push('/destination')}
+                            onPress={() => navToDestination()}
                         >
                             <View style={styles.promoBannerContent}>
                                 <Text style={styles.promoBannerHeadline}>FIRST AUTO RIDE FREE</Text>
@@ -186,7 +240,7 @@ export default function HomeScreen() {
                     <TouchableOpacity
                         activeOpacity={0.9}
                         style={styles.campaignCard}
-                        onPress={() => router.push('/destination')}
+                        onPress={() => navToDestination()}
                     >
                         <View style={{ flex: 1 }}>
                             <Text style={styles.campaignHeader}>Three wheels.{'\n'}Free wheels.</Text>
@@ -224,8 +278,8 @@ const styles = StyleSheet.create({
     },
     sheetBackground: {
         backgroundColor: colors.white,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
         elevation: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
@@ -233,67 +287,21 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
     },
     sheetHandle: {
-        width: 36,
-        height: 4,
+        width: 44,
+        height: 5,
         backgroundColor: '#D1D5DB', // subtle gray
-        borderRadius: 2,
+        borderRadius: 3,
         marginTop: 8,
     },
     sheetScrollContent: {
         paddingTop: 6, // minimal gap after handle
+        paddingBottom: 0,
     },
-    searchBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#F1F5F9', // extremely subtle border matching reference
-        borderRadius: 24, // perfectly pill-rounded
-        marginHorizontal: 16,
-        paddingHorizontal: 16,
-        height: 48, // Rapido specific compact size
-        marginBottom: 16,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-    },
-    searchPlaceholderText: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: colors.ink,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginHorizontal: 16,
-        marginBottom: 12,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: colors.ink,
-        paddingRight: 4,
-    },
-    viewAllBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    viewAllText: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: colors.inkSoft,
-        marginRight: 2,
-    },
-    servicesRow: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        justifyContent: 'flex-start',
-        flexWrap: 'wrap',
-        marginBottom: 8,
-    },
+    searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', marginHorizontal: 16, marginTop: 12, marginBottom: 24, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 16 },
+    searchPlaceholderText: { fontSize: 16, fontWeight: '600', color: colors.inkSoft },
+    sectionHeaderTitle: { marginLeft: 16, marginTop: 4, marginBottom: 12, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: colors.inkFaint },
+    sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, marginLeft: 16 },
+    servicesRow: { flexDirection: 'row', paddingHorizontal: 8, marginBottom: 16, justifyContent: 'space-between' },
     serviceBlock: {
         alignItems: 'center',
         width: (Dimensions.get('window').width - 32) / 4,

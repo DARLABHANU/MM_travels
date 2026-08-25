@@ -16,6 +16,7 @@ export default function EmergencyContactsScreen() {
     const [showAdd, setShowAdd] = useState(false);
     const [newName, setNewName] = useState('');
     const [newPhone, setNewPhone] = useState('');
+    const [isAutoShare, setIsAutoShare] = useState(false);
 
     const addContact = () => {
         if (newName && newPhone) {
@@ -83,6 +84,18 @@ export default function EmergencyContactsScreen() {
                         <Text style={styles.warnText}>Add a contact so we can reach someone if needed</Text>
                     </View>
                 )}
+
+                {contacts.length > 0 && (
+                    <View style={styles.autoShareCard}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <Text style={styles.autoShareTitle}>Automatically share trips</Text>
+                            <TouchableOpacity onPress={() => setIsAutoShare(!isAutoShare)}>
+                                <Ionicons name={isAutoShare ? "checkbox" : "square-outline"} size={22} color={isAutoShare ? colors.blue : colors.inkSoft} />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={styles.autoShareDesc}>Your selected contacts will receive a secure tracking link automatically when your trip begins.</Text>
+                    </View>
+                )}
                 <View style={{ height: 32 }} />
             </ScrollView>
         </SafeAreaView>
@@ -114,4 +127,7 @@ const styles = StyleSheet.create({
     saveTxt: { fontSize: 13, fontWeight: '700', color: '#3A2405' },
     warnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     warnText: { fontSize: 11, fontWeight: '600', color: colors.goldDark },
+    autoShareCard: { marginTop: 8, padding: 16, backgroundColor: colors.surface, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line },
+    autoShareTitle: { fontSize: 13, fontWeight: '800', color: colors.ink },
+    autoShareDesc: { fontSize: 12, fontWeight: '500', color: colors.inkSoft, lineHeight: 16 },
 });

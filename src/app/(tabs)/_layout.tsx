@@ -36,11 +36,23 @@ export default function TabLayout() {
                     ),
                 }}
             />
-            {/* I1 — Trips */}
+            {/* Services Directory */}
+            <Tabs.Screen
+                name="services"
+                options={{
+                    title: 'Services',
+                    tabBarIcon: ({ color, focused }) => (
+                        <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+                            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={20} color={color} />
+                        </View>
+                    ),
+                }}
+            />
+            {/* Activity / Trips */}
             <Tabs.Screen
                 name="trips"
                 options={{
-                    title: 'Trips',
+                    title: 'Activity',
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
                             <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={20} color={color} />
@@ -48,7 +60,7 @@ export default function TabLayout() {
                     ),
                 }}
             />
-            {/* B3 — Explore */}
+            {/* Explore */}
             <Tabs.Screen
                 name="explore"
                 options={{
@@ -60,23 +72,11 @@ export default function TabLayout() {
                     ),
                 }}
             />
-            {/* J1 — Help */}
-            <Tabs.Screen
-                name="help"
-                options={{
-                    title: 'Help',
-                    tabBarIcon: ({ color, focused }) => (
-                        <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-                            <Ionicons name={focused ? 'headset' : 'headset-outline'} size={20} color={color} />
-                        </View>
-                    ),
-                }}
-            />
-            {/* K1 — Profile */}
+            {/* Account / Profile */}
             <Tabs.Screen
                 name="profile"
                 options={{
-                    title: 'Profile',
+                    title: 'Account',
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
                             <Ionicons name={focused ? 'person' : 'person-outline'} size={20} color={color} />
@@ -86,9 +86,9 @@ export default function TabLayout() {
             />
 
             {/* Hidden routes — not part of bottom nav */}
+            <Tabs.Screen name="help" options={{ href: null }} />
             <Tabs.Screen name="activity" options={{ href: null }} />
             <Tabs.Screen name="account" options={{ href: null }} />
-            <Tabs.Screen name="services" options={{ href: null }} />
         </Tabs>
     );
 }
