@@ -7,6 +7,19 @@ export interface BookingIntent {
     serviceId: string; // e.g., 'city_ride', 'parcel', 'pool'
     flowType: FlowType;
     vehicleCategory?: string; // e.g., 'bike', 'cab', 'mini_truck'
+    poolDetails?: {
+        routeId: string;
+        boardingStopId: string;
+        destinationStopId: string;
+        fromStopSequence: number;
+        toStopSequence: number;
+        fare: number | null;
+        scheduledDeparture: string;
+        vehicle: any;
+        selectedSeats?: string[];
+        holdId?: string;
+        lockedUntil?: string;
+    };
 }
 
 interface LocationState {

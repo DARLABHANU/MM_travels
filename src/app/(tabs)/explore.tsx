@@ -13,6 +13,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIntentStore } from '../../store/intentStore';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = SCREEN_W - 36 * 2;
@@ -41,8 +42,12 @@ const SELF_DRIVE = [
 
 function DestCard({ item }: { item: typeof PACKAGES[0] }) {
     const router = useRouter();
+    const setIntent = useIntentStore(state => state.setIntent);
     return (
-        <TouchableOpacity style={styles.destCard} activeOpacity={0.8} onPress={() => router.push('/destination')}>
+        <TouchableOpacity style={styles.destCard} activeOpacity={0.8} onPress={() => {
+            setIntent({ serviceId: 'outstation', flowType: 'OUTSTATION' });
+            router.push('/destination');
+        }}>
             <LinearGradient colors={item.colors} style={styles.destGradient}>
                 <Ionicons name={item.icon as any} size={28} color="rgba(255,255,255,0.7)" style={styles.destBgIcon} />
                 <View style={styles.destCaption}>
@@ -56,6 +61,7 @@ function DestCard({ item }: { item: typeof PACKAGES[0] }) {
 
 export default function ExploreScreen() {
     const router = useRouter();
+    const setIntent = useIntentStore(state => state.setIntent);
     const [activeCategory, setActiveCategory] = useState('All');
 
     return (
@@ -129,7 +135,10 @@ export default function ExploreScreen() {
                         </TouchableOpacity>
                     </View>
                     {SELF_DRIVE.map((car) => (
-                        <TouchableOpacity key={car.id} style={styles.fleetCard} activeOpacity={0.8} onPress={() => router.push('/destination')}>
+                        <TouchableOpacity key={car.id} style={styles.fleetCard} activeOpacity={0.8} onPress={() => {
+                            setIntent({ serviceId: 'rental', flowType: 'RENTAL' });
+                            router.push('/destination');
+                        }}>
                             <View style={[styles.fleetIcon, { backgroundColor: car.bg }]}>
                                 <Ionicons name={car.icon as any} size={24} color={car.color} />
                             </View>
@@ -147,7 +156,10 @@ export default function ExploreScreen() {
                 {/* Pooled Routes Teaser */}
                 <View style={[styles.section, { marginBottom: 32 }]}>
                     <Text style={styles.sectionLabel}>Shared routes near you</Text>
-                    <TouchableOpacity style={styles.poolTeaser} activeOpacity={0.85} onPress={() => router.push('/d1-pool-search')}>
+                    <TouchableOpacity style={styles.poolTeaser} activeOpacity={0.85} onPress={() => {
+                        setIntent({ serviceId: 'pool', flowType: 'POOL' });
+                        router.push('/destination');
+                    }}>
                         <LinearGradient colors={[colors.roseTint, '#fce8ef']} style={styles.poolGradient}>
                             <View style={[styles.poolIcon, { backgroundColor: colors.rose + '20' }]}>
                                 <Ionicons name="people" size={28} color={colors.rose} />

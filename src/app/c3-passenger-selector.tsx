@@ -52,7 +52,7 @@ export default function PassengerSelectorScreen() {
 
                 <View style={{ flex: 1 }} />
 
-                <TouchableOpacity style={styles.applyBtn} activeOpacity={0.85} onPress={() => router.push('/c6-vehicle-results')}>
+                <TouchableOpacity style={styles.applyBtn} activeOpacity={0.85} onPress={() => router.push('/city-ride/checkout')}>
                     <Text style={styles.applyText}>Confirm & Apply</Text>
                 </TouchableOpacity>
             </View>

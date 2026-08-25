@@ -47,7 +47,7 @@ export default function F2LiveTrackingScreen() {
         const recoverRide = async () => {
             try {
                 // 1. Fetch current booking authoritative snapshot
-                const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/api/bookings/current`);
+                const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://10.200.240.183:5000'}/api/bookings/current`);
                 const data = await res.json();
 
                 if (isMounted && data.booking) {
@@ -114,7 +114,7 @@ export default function F2LiveTrackingScreen() {
     const mockDriverVerifyPin = async () => {
         if (!bookingId) return;
         try {
-            await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/api/bookings/${bookingId}/trip-pin/verify`, {
+            await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://10.200.240.183:5000'}/api/bookings/${bookingId}/trip-pin/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pin: '4821' })
@@ -127,7 +127,7 @@ export default function F2LiveTrackingScreen() {
         if (!bookingId || isPaying) return;
         setIsPaying(true);
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/api/bookings/${bookingId}/payment/settle`, { method: 'POST' });
+            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://10.200.240.183:5000'}/api/bookings/${bookingId}/payment/settle`, { method: 'POST' });
             const data = await res.json();
             if (data.status) {
                 applyServerBookingState({ status: data.status });
@@ -442,3 +442,4 @@ const styles = StyleSheet.create({
     sosSuperTitle: { color: '#FFF', fontSize: 16, fontWeight: '900', marginLeft: 8, letterSpacing: 0.5 },
     sosDisclaimer: { textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 12, paddingHorizontal: 20 }
 });
+

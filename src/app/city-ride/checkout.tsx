@@ -81,7 +81,7 @@ export default function CityRideCheckoutScreen() {
     const handleConfirmBooking = async () => {
         setIsBooking(true);
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/api/bookings`, {
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://10.200.240.183:5000'}/api/bookings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -286,3 +286,4 @@ const styles = StyleSheet.create({
     mockPopupOption: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
     mockPopupOptionText: { fontSize: 14, fontWeight: '600' }
 });
+

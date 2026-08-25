@@ -85,7 +85,7 @@ export default function PlanRouteScreen() {
     const handleConfirmSchedule = () => {
         scheduleSheetRef.current?.close();
         router.push({
-            pathname: '/c6-vehicle-results',
+            pathname: '/city-ride/checkout',
             params: {
                 pickupLat: params.pickupLat,
                 pickupLng: params.pickupLng,

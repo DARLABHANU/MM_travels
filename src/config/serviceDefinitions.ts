@@ -74,7 +74,7 @@ export const SERVICE_DEFINITIONS: Record<string, ServiceDefinition> = {
         id: 'pool',
         flowType: 'POOL',
         category: 'pool',
-        targetRoute: '/pool/checkout',
+        targetRoute: '/pool/search',
         locationRequirements: [
             {
                 role: 'boarding',

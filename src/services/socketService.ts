@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { useRideStore } from '../store/rideStore';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.200.240.183:5000';
 
 class SocketService {
     private socket: Socket | null = null;
@@ -87,3 +87,4 @@ class SocketService {
 }
 
 export const socketService = new SocketService();
+

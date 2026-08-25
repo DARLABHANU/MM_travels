@@ -7,23 +7,26 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { useRouter } from 'expo-router';
 
+import { BookingIntent, useIntentStore } from '../../store/intentStore';
+
 interface AllServicesModalProps {
     onDismiss?: () => void;
 }
 
 const ALL_SERVICES = [
-    { id: 'shared_auto', name: 'Shared\nAuto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false, route: '/d1-pool-search' },
-    { id: 'parcel_bike', name: 'Parcel on\nBike', icon: 'bicycle', badge: 'cube', iconColor: '#713F12', bg: '#FFFBEB', gradient: ['#FDE047', '#EAB308'], isNew: false, route: '/destination' },
-    { id: 'auto', name: 'Auto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false, route: '/destination' },
-    { id: 'cab_economy', name: 'Cab\nEconomy', icon: 'car', iconColor: '#0F172A', bg: '#F8FAFC', gradient: ['#E2E8F0', '#CBD5E1'], isNew: false, route: '/destination' },
-    { id: 'bike', name: 'Bike', icon: 'bicycle', iconColor: '#1E293B', bg: '#F1F5F9', gradient: ['#CBD5E1', '#94A3B8'], isNew: false, route: '/destination' },
-    { id: 'bike_lite', name: 'Bike Lite', icon: 'bicycle', badge: 'pricetag', iconColor: '#14532D', bg: '#DCFCE7', gradient: ['#86EFAC', '#4ADE80'], isNew: false, route: '/destination' },
-    { id: 'cab_premium', name: 'Cab\nPremium', icon: 'car', iconColor: '#854D0E', bg: '#FEF9C3', gradient: ['#FDE047', '#EAB308'], isNew: true, route: '/destination' },
-    { id: 'travel', name: 'Travel', icon: 'bus', iconColor: '#1E3A8A', bg: '#DBEAFE', gradient: ['#93C5FD', '#60A5FA'], isNew: false, route: '/d1-pool-search' },
+    { id: 'shared_auto', name: 'Shared\nAuto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false, intent: { serviceId: 'pool', flowType: 'POOL' } as BookingIntent },
+    { id: 'parcel_bike', name: 'Parcel on\nBike', icon: 'bicycle', badge: 'cube', iconColor: '#713F12', bg: '#FFFBEB', gradient: ['#FDE047', '#EAB308'], isNew: false, intent: { serviceId: 'parcel', flowType: 'PARCEL' } as BookingIntent },
+    { id: 'auto', name: 'Auto', icon: 'car-sport', iconColor: '#064E3B', bg: '#F0FDF4', gradient: ['#4ADE80', '#22C55E'], isNew: false, intent: { serviceId: 'city_ride', vehicleCategory: 'auto', flowType: 'CITY_RIDE' } as BookingIntent },
+    { id: 'cab_economy', name: 'Cab\nEconomy', icon: 'car', iconColor: '#0F172A', bg: '#F8FAFC', gradient: ['#E2E8F0', '#CBD5E1'], isNew: false, intent: { serviceId: 'city_ride', vehicleCategory: 'cab', flowType: 'CITY_RIDE' } as BookingIntent },
+    { id: 'bike', name: 'Bike', icon: 'bicycle', iconColor: '#1E293B', bg: '#F1F5F9', gradient: ['#CBD5E1', '#94A3B8'], isNew: false, intent: { serviceId: 'city_ride', vehicleCategory: 'bike', flowType: 'CITY_RIDE' } as BookingIntent },
+    { id: 'bike_lite', name: 'Bike Lite', icon: 'bicycle', badge: 'pricetag', iconColor: '#14532D', bg: '#DCFCE7', gradient: ['#86EFAC', '#4ADE80'], isNew: false, intent: { serviceId: 'city_ride', vehicleCategory: 'bike_lite', flowType: 'CITY_RIDE' } as BookingIntent },
+    { id: 'cab_premium', name: 'Cab\nPremium', icon: 'car', iconColor: '#854D0E', bg: '#FEF9C3', gradient: ['#FDE047', '#EAB308'], isNew: true, intent: { serviceId: 'city_ride', vehicleCategory: 'cab', flowType: 'CITY_RIDE' } as BookingIntent },
+    { id: 'travel', name: 'Travel', icon: 'bus', iconColor: '#1E3A8A', bg: '#DBEAFE', gradient: ['#93C5FD', '#60A5FA'], isNew: false, intent: { serviceId: 'outstation', flowType: 'OUTSTATION' } as BookingIntent },
 ];
 
 export const AllServicesModal = forwardRef<BottomSheet, AllServicesModalProps>(({ onDismiss }, ref) => {
     const router = useRouter();
+    const setIntent = useIntentStore(state => state.setIntent);
     // Snap points for the modal. We use fixed percentages relative to the screen.
     const snapPoints = useMemo(() => ['70%'], []);
 
@@ -78,8 +81,9 @@ export const AllServicesModal = forwardRef<BottomSheet, AllServicesModalProps>((
                             if (ref && 'current' in ref && ref.current) {
                                 ref.current.close(); // Close modal first
                             }
-                            // Then navigate
-                            router.push(svc.route as any);
+                            // Then navigate with specific intent
+                            setIntent(svc.intent);
+                            router.push('/destination');
                         }}
                     >
                         <View style={[styles.svcIconBlock, { backgroundColor: svc.bg }]}>
